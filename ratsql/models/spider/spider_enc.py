@@ -652,7 +652,8 @@ class SpiderEncoderBertPreproc(SpiderEncoderV2Preproc):
             include_table_name_in_column=False,
             bert_version="bert-base-uncased",
             compute_sc_link=True,
-            compute_cv_link=False):
+            compute_cv_link=False,
+            compute_qv_link=True):
 
         self.data_dir = os.path.join(save_path, 'enc')
         self.db_path = db_path
@@ -695,8 +696,10 @@ class SpiderEncoderBertPreproc(SpiderEncoderV2Preproc):
 
         if self.compute_cv_link:
             cv_link = question_bert_tokens.bert_cv_linking(item.schema)
+            qv_link = question_bert_tokens.
         else:
             cv_link = {"num_date_match": {}, "cell_match": {}}
+
 
         return {
             'raw_question': item.orig['question'],

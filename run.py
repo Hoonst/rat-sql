@@ -107,6 +107,16 @@ def main():
                 eval_output_path,
             )
             eval.main(eval_config)
+            
+            
+            '''
+            Note
+
+            Using Original Code won't iterate through checkpoints in the runs
+            In that, I manually changed the folder name to make '__LOGDIR__' to be replaced correctly
+            This will make iteration possible again.
+            
+            '''
             end_lr = '0e0' if exp_config['model_config_args']['end_lr'] == 0 else 0
 
             substring = f"{exp_config['logdir']}/bs={exp_config['model_config_args']['bs']},lr={format(exp_config['model_config_args']['lr'], '.1e')},bert_lr={format(exp_config['model_config_args']['bert_lr'], '.1e')},end_lr={end_lr},att={exp_config['model_config_args']['att']}"            

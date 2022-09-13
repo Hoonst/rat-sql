@@ -11,11 +11,13 @@ function(args) _base(output_from=_output_from, data_path=args.data_path) + {
 
     local base_bert_enc_size = if args.bert_version == "bert-large-uncased-whole-word-masking" then 1024 else 768,
     local enc_size =  base_bert_enc_size,
+    local loss_s = args.loss,
 
-    model_name: 'bs=%(bs)d,lr=%(lr)s,bert_lr=%(bert_lr)s,end_lr=%(end_lr)s,att=%(att)d' % (args + {
+    model_name: 'bs=%(bs)d,lr=%(lr)s,bert_lr=%(bert_lr)s,end_lr=%(end_lr)s,att=%(att)d,loss=%(loss)s' % (args + {
         lr: lr_s,
         bert_lr: bert_lr_s,
         end_lr: end_lr_s,
+        loss: loss_s
     }),
 
     model+: {
@@ -73,7 +75,7 @@ function(args) _base(output_from=_output_from, data_path=args.data_path) + {
             desc_attn: 'mha',
             enc_recurrent_size: enc_size,
             recurrent_size : args.decoder_hidden_size,
-            loss_type: 'softmax',
+            loss_type: args.loss,
             use_align_mat: args.use_align_mat,
             use_align_loss: args.use_align_loss,
         }
