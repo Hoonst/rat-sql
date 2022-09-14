@@ -34,6 +34,8 @@ class SpiderEncoderState:
     m2c_align_mat = attr.ib()
     m2t_align_mat = attr.ib()
 
+    value_memory = attr.ib()
+
     def find_word_occurrences(self, word):
         return [i for i, w in enumerate(self.words) if w == word]
 
@@ -277,7 +279,7 @@ class SpiderEncoderV2(torch.nn.Module):
             column_encoder=('emb', 'bilstm'),
             table_encoder=('emb', 'bilstm'),
             update_config={},
-            include_in_memory=('question', 'column', 'table'),
+            include_in_memory=('question', 'column', 'table', 'value'),
             batch_encs_update=True,
             top_k_learnable=0):
         super().__init__()
@@ -411,6 +413,10 @@ class SpiderEncoderV2(torch.nn.Module):
         if 'table' in self.include_in_memory:
             memory.append(t_enc_new)
             words_for_copying += [''] * t_enc_new.shape[1]
+
+        if 'value' in self.include_in_memory:
+            memory.append(v_enc_new)
+            words_for_copying += [''] * v_enc_new.shape[1]
         memory = torch.cat(memory, dim=1)
 
         return SpiderEncoderState(
@@ -634,10 +640,15 @@ class Bertokens:
         for m_type in cv_link:
             _match = {}
             for ij_str in cv_link[m_type]:
-                q_id_str, col_tab_id_str = ij_str.split(",")
-                q_id, col_tab_id = int(q_id_str), int(col_tab_id_str)
-                real_q_id = self.idx_map[q_id]
-                _match[f"{real_q_id},{col_tab_id}"] = cv_link[m_type][ij_str]
+                if m_type == 'value_word':
+                    _match = cv_link[m_type]
+                else:
+                    q_id_str, col_tab_id_str = ij_str.split(",")
+
+                    q_id, col_tab_id = int(q_id_str), int(col_tab_id_str)
+                    real_q_id = self.idx_map[q_id]
+                    _match[f"{real_q_id},{col_tab_id}"] = cv_link[m_type][ij_str]
+                
             new_cv_link[m_type] = _match
         return new_cv_link
 
@@ -653,7 +664,7 @@ class SpiderEncoderBertPreproc(SpiderEncoderV2Preproc):
             bert_version="bert-base-uncased",
             compute_sc_link=True,
             compute_cv_link=False,
-            compute_qv_link=True):
+            ):
 
         self.data_dir = os.path.join(save_path, 'enc')
         self.db_path = db_path
@@ -696,10 +707,15 @@ class SpiderEncoderBertPreproc(SpiderEncoderV2Preproc):
 
         if self.compute_cv_link:
             cv_link = question_bert_tokens.bert_cv_linking(item.schema)
-            qv_link = question_bert_tokens.
+            # qv_link = question_bert_tokens.bert_qv_linking(item.s)
         else:
-            cv_link = {"num_date_match": {}, "cell_match": {}}
+            cv_link = {"num_date_match": {}, "cell_match": {}, "value_match": {}, "value_word": []}
 
+        '''
+        preprocess 단계에서는 아직 question과 schema 요소를 합치지 않고, 개별적으로 간주
+        qv_link가 어떤 형태로 나와야 활용 가능한가
+        
+        '''
 
         return {
             'raw_question': item.orig['question'],
@@ -765,7 +781,8 @@ class SpiderEncoderBert(torch.nn.Module):
             bert_version="bert-base-uncased",
             summarize_header="first",
             use_column_type=True,
-            include_in_memory=('question', 'column', 'table')):
+            include_in_memory=('question', 'column', 'table', 'value'),
+            ):
         super().__init__()
         self._device = device
         self.preproc = preproc
@@ -778,13 +795,14 @@ class SpiderEncoderBert(torch.nn.Module):
         self.use_column_type = use_column_type
 
         self.include_in_memory = set(include_in_memory)
+        self.qv_link = update_config['qv_link']
+
         update_modules = {
             'relational_transformer':
                 spider_enc_modules.RelationalTransformerUpdate,
             'none':
                 spider_enc_modules.NoOpUpdate,
         }
-
         self.encs_update = registry.instantiate(
             update_modules[update_config['name']],
             update_config,
@@ -803,9 +821,13 @@ class SpiderEncoderBert(torch.nn.Module):
         batch_id_to_retrieve_question = []
         batch_id_to_retrieve_column = []
         batch_id_to_retrieve_table = []
+        # values added
+        batch_id_to_retrieve_value = []
+
         if self.summarize_header == "avg":
             batch_id_to_retrieve_column_2 = []
             batch_id_to_retrieve_table_2 = []
+
         long_seq_set = set()
         batch_id_map = {}  # some long examples are not included
         for batch_idx, desc in enumerate(descs):
@@ -815,9 +837,15 @@ class SpiderEncoderBert(torch.nn.Module):
             else:
                 cols = [self.pad_single_sentence_for_bert(c[:-1], cls=False) for c in desc['columns']]
             tabs = [self.pad_single_sentence_for_bert(t, cls=False) for t in desc['tables']]
-
+            
+            # qv_link 파라미터를 어디서 가져올까?
+            if self.qv_link and desc['cv_link']['value_word']:
+                vals = self.pad_single_sentence_for_bert(desc['cv_link']['value_word'], cls=True)
+            else:
+                vals = []
             token_list = qs + [c for col in cols for c in col] + \
-                         [t for tab in tabs for t in tab]
+                         [t for tab in tabs for t in tab] + \
+                         vals
             assert self.check_bert_seq(token_list)
             if len(token_list) > 512:
                 long_seq_set.add(batch_idx)
@@ -825,6 +853,8 @@ class SpiderEncoderBert(torch.nn.Module):
 
             q_b = len(qs)
             col_b = q_b + sum(len(c) for c in cols)
+            tab_b = col_b + sum(len(t) for t in tabs)
+
             # leave out [CLS] and [SEP]
             question_indexes = list(range(q_b))[1:-1]
             # use the first representation for column/table
@@ -832,6 +862,12 @@ class SpiderEncoderBert(torch.nn.Module):
                 np.cumsum([q_b] + [len(token_list) for token_list in cols[:-1]]).tolist()
             table_indexes = \
                 np.cumsum([col_b] + [len(token_list) for token_list in tabs[:-1]]).tolist()
+
+            if vals:
+                value_indexes = list(range(len(vals)))[1:-1]
+            else:
+                value_indexes = []
+
             if self.summarize_header == "avg":
                 column_indexes_2 = \
                     np.cumsum([q_b - 2] + [len(token_list) for token_list in cols]).tolist()[1:]
@@ -847,6 +883,11 @@ class SpiderEncoderBert(torch.nn.Module):
             batch_id_to_retrieve_column.append(column_rep_ids)
             table_rep_ids = torch.LongTensor(table_indexes).to(self._device)
             batch_id_to_retrieve_table.append(table_rep_ids)
+
+            value_rep_ids = torch.LongTensor(value_indexes).to(self._device)
+            batch_id_to_retrieve_value.append(value_rep_ids)
+
+            # value는 딱히 avg가 필요 없음
             if self.summarize_header == "avg":
                 assert (all(i2 >= i1 for i1, i2 in zip(column_indexes, column_indexes_2)))
                 column_rep_ids_2 = torch.LongTensor(column_indexes_2).to(self._device)
@@ -894,12 +935,17 @@ class SpiderEncoderBert(torch.nn.Module):
             t_boundary = list(range(len(desc["tables"]) + 1))
 
             if batch_idx in long_seq_set:
-                q_enc, col_enc, tab_enc = self.encoder_long_seq(desc)
+                q_enc, col_enc, tab_enc, val_enc = self.encoder_long_seq(desc)
             else:
                 bert_batch_idx = batch_id_map[batch_idx]
                 q_enc = enc_output[bert_batch_idx][batch_id_to_retrieve_question[bert_batch_idx]]
                 col_enc = enc_output[bert_batch_idx][batch_id_to_retrieve_column[bert_batch_idx]]
                 tab_enc = enc_output[bert_batch_idx][batch_id_to_retrieve_table[bert_batch_idx]]
+
+                if self.qv_link:
+                    val_enc = enc_output[bert_batch_idx][batch_id_to_retrieve_value[bert_batch_idx]]
+                else:
+                    val_enc = torch.tensor([]).to(self._device)
 
                 if self.summarize_header == "avg":
                     col_enc_2 = enc_output[bert_batch_idx][batch_id_to_retrieve_column_2[bert_batch_idx]]
@@ -912,14 +958,22 @@ class SpiderEncoderBert(torch.nn.Module):
             assert col_enc.size()[0] == c_boundary[-1]
             assert tab_enc.size()[0] == t_boundary[-1]
 
-            q_enc_new_item, c_enc_new_item, t_enc_new_item, align_mat_item = \
+            # import IPython; IPython.embed(); exit(1);
+            if self.qv_link:
+                val_enc.size()[0] == len(desc['cv_link']['value_word'])
+            else:
+                val_enc = torch.tensor([]).to(self._device)
+            
+            q_enc_new_item, c_enc_new_item, t_enc_new_item, v_enc_new_item, align_mat_item = \
                 self.encs_update.forward_unbatched(
                     desc,
                     q_enc.unsqueeze(1),
                     col_enc.unsqueeze(1),
                     c_boundary,
                     tab_enc.unsqueeze(1),
-                    t_boundary)
+                    t_boundary,
+                    val_enc.unsqueeze(1),
+                    )
 
             memory = []
             if 'question' in self.include_in_memory:
@@ -928,6 +982,9 @@ class SpiderEncoderBert(torch.nn.Module):
                 memory.append(c_enc_new_item)
             if 'table' in self.include_in_memory:
                 memory.append(t_enc_new_item)
+            if 'value' in self.include_in_memory:
+                memory.append(v_enc_new_item)
+            
             memory = torch.cat(memory, dim=1)
 
             result.append(SpiderEncoderState(
@@ -947,6 +1004,7 @@ class SpiderEncoderBert(torch.nn.Module):
                 },
                 m2c_align_mat=align_mat_item[0],
                 m2t_align_mat=align_mat_item[1],
+                value_memory=v_enc_new_item
             ))
         return result
 
@@ -963,7 +1021,14 @@ class SpiderEncoderBert(torch.nn.Module):
         enc_q = self._bert_encode(qs)
         enc_col = self._bert_encode(cols)
         enc_tab = self._bert_encode(tabs)
-        return enc_q, enc_col, enc_tab
+
+        if type(vals) == list:
+            vals = self.pad_single_sentence_for_bert(desc['cv_link']['value_word'], cls=True)
+            enc_v = self._bert_encode(vals)
+        else:
+            enc_v = []
+
+        return enc_q, enc_col, enc_tab, enc_v
 
     @DeprecationWarning
     def _bert_encode(self, toks):

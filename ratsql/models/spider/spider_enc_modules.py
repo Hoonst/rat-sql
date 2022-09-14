@@ -309,6 +309,7 @@ class RelationalTransformerUpdate(torch.nn.Module):
                  tt_foreign_key=True,
                  sc_link=False,
                  cv_link=False,
+                 qv_link=False,
                  ):
         super().__init__()
         self._device = device
@@ -328,6 +329,7 @@ class RelationalTransformerUpdate(torch.nn.Module):
         self.tc_foreign_key = tc_foreign_key
         self.tt_max_dist = tt_max_dist
         self.tt_foreign_key = tt_foreign_key
+        self.vv_max_dist = 2
 
         self.relation_ids = {}
 
@@ -369,8 +371,6 @@ class RelationalTransformerUpdate(torch.nn.Module):
             add_relation('ct_any_table')
 
         add_relation('tq_default')
-        # if cq_token_match:
-        #    add_relation('tq_token_match')
 
         add_relation('tc_default')
         if tc_table_match:
@@ -406,6 +406,21 @@ class RelationalTransformerUpdate(torch.nn.Module):
             add_relation("cqTIME")
             add_relation("qcCELLMATCH")
             add_relation("cqCELLMATCH")
+
+        if qv_link:
+            add_relation("qv_default")
+            add_relation("vq_default")
+            
+            add_relation("qvVALUEMATCH")
+            add_relation("vqVALUEMATCH")
+
+            add_relation("cv_default")
+            add_relation("vc_default")
+
+            add_relation("tv_default")
+            add_relation("vt_default")
+
+            add_rel_dist('vv_dist', self.vv_max_dist)
 
         if merge_types:
             assert not cc_foreign_key
@@ -445,10 +460,25 @@ class RelationalTransformerUpdate(torch.nn.Module):
                 self.relation_ids["cqTIME"] = self.relation_ids['xx_default']
                 self.relation_ids["qcCELLMATCH"] = self.relation_ids['xx_default']
                 self.relation_ids["cqCELLMATCH"] = self.relation_ids['xx_default']
+            if qv_link:
+                self.relation_ids['qv_default'] = self.relation_ids['xx_default']
+                self.relation_ids['vq_default'] = self.relation_ids['xx_default']
+
+                self.relation_ids['cv_default'] = self.relation_ids['xx_default']
+                self.relation_ids['vc_default'] = self.relation_ids['xx_default']
+
+                self.relation_ids['tv_default'] = self.relation_ids['xx_default']
+                self.relation_ids['vt_default'] = self.relation_ids['xx_default']
+
+                self.relation_ids["qvVALUEMATCH"] = self.relation_ids["xx_default"]
+                self.relation_ids["vqVALUEMATCH"] = self.relation_ids["xx_default"]
 
             for i in range(-qq_max_dist, qq_max_dist + 1):
                 self.relation_ids['cc_dist', i] = self.relation_ids['qq_dist', i]
                 self.relation_ids['tt_dist', i] = self.relation_ids['tt_dist', i]
+
+                if qv_link:
+                    self.relation_ids["vv_dist"] = self.relation_ids['vv_dist', i]
 
         if ff_size is None:
             ff_size = hidden_size * 4
@@ -484,13 +514,16 @@ class RelationalTransformerUpdate(torch.nn.Module):
         mask = torch.cat([mask_1, mask_2], 0)
         return mask
 
-    def forward_unbatched(self, desc, q_enc, c_enc, c_boundaries, t_enc, t_boundaries):
+    def forward_unbatched(self, desc, q_enc, c_enc, c_boundaries, t_enc, t_boundaries, v_enc):
         # enc shape: total len x batch (=1) x recurrent size
-        enc = torch.cat((q_enc, c_enc, t_enc), dim=0)
+        if len(v_enc):
+            enc = torch.cat((q_enc, c_enc, t_enc, v_enc), dim=0)
+        else:
+            enc = torch.cat((q_enc, c_enc, t_enc), dim=0)
+            v_enc = torch.tensor([]).to(self._device)
 
         # enc shape: batch (=1) x total len x recurrent size
         enc = enc.transpose(0, 1)
-
         # Catalogue which things are where
         relations = self.compute_relations(
             desc,
@@ -498,23 +531,27 @@ class RelationalTransformerUpdate(torch.nn.Module):
             q_enc_length=q_enc.shape[0],
             c_enc_length=c_enc.shape[0],
             c_boundaries=c_boundaries,
-            t_boundaries=t_boundaries)
+            t_boundaries=t_boundaries,
+            v_enc_length=v_enc.shape[0])
 
         relations_t = torch.LongTensor(relations).to(self._device)
+
         enc_new = self.encoder(enc, relations_t, mask=None)
 
         # Split updated_enc again
         c_base = q_enc.shape[0]
         t_base = q_enc.shape[0] + c_enc.shape[0]
+        v_base = q_enc.shape[0] + c_enc.shape[0] + t_enc.shape[0]
         q_enc_new = enc_new[:, :c_base]
         c_enc_new = enc_new[:, c_base:t_base]
-        t_enc_new = enc_new[:, t_base:]
+        t_enc_new = enc_new[:, t_base:v_base]
+        v_enc_new = enc_new[:, v_base:]
 
         m2c_align_mat = self.align_attn(enc_new, enc_new[:, c_base:t_base], \
                                         enc_new[:, c_base:t_base], relations_t[:, c_base:t_base])
         m2t_align_mat = self.align_attn(enc_new, enc_new[:, t_base:], \
                                         enc_new[:, t_base:], relations_t[:, t_base:])
-        return q_enc_new, c_enc_new, t_enc_new, (m2c_align_mat, m2t_align_mat)
+        return q_enc_new, c_enc_new, t_enc_new, v_enc_new, (m2c_align_mat, m2t_align_mat)
 
     def forward(self, descs, q_enc, c_enc, c_boundaries, t_enc, t_boundaries):
         # TODO: Update to also compute m2c_align_mat and m2t_align_mat
@@ -536,7 +573,8 @@ class RelationalTransformerUpdate(torch.nn.Module):
                 q_enc_lengths[batch_idx],
                 c_enc_lengths[batch_idx],
                 c_boundaries[batch_idx],
-                t_boundaries[batch_idx])
+                t_boundaries[batch_idx],
+                )
             all_relations.append(np.pad(relations_for_item, ((0, max_enc_length - enc_length),), 'constant'))
         relations_t = torch.from_numpy(np.stack(all_relations)).to(self._device)
 
@@ -566,9 +604,10 @@ class RelationalTransformerUpdate(torch.nn.Module):
             gather_from_indices=gather_from_enc_new)
         return q_enc_new, c_enc_new, t_enc_new
 
-    def compute_relations(self, desc, enc_length, q_enc_length, c_enc_length, c_boundaries, t_boundaries):
+    def compute_relations(self, desc, enc_length, q_enc_length, c_enc_length, c_boundaries, t_boundaries, v_enc_length):
         sc_link = desc.get('sc_link', {'q_col_match': {}, 'q_tab_match': {}})
         cv_link = desc.get('cv_link', {'num_date_match': {}, 'cell_match': {}})
+        qv_link = desc.get('cv_link', {'value_match': {}, 'value_word': {}})
 
         # Catalogue which things are where
         loc_types = {}
@@ -579,18 +618,31 @@ class RelationalTransformerUpdate(torch.nn.Module):
         for c_id, (c_start, c_end) in enumerate(zip(c_boundaries, c_boundaries[1:])):
             for i in range(c_start + c_base, c_end + c_base):
                 loc_types[i] = ('column', c_id)
+
         t_base = q_enc_length + c_enc_length
         for t_id, (t_start, t_end) in enumerate(zip(t_boundaries, t_boundaries[1:])):
             for i in range(t_start + t_base, t_end + t_base):
                 loc_types[i] = ('table', t_id)
 
-        relations = np.empty((enc_length, enc_length), dtype=np.int64)
+        v_base = q_enc_length + c_enc_length + len(desc['tables'])
 
+        # import IPython; IPython.embed(); exit(1);
+
+        if v_enc_length:
+            for i in range(v_base, v_base+v_enc_length):
+                loc_types[i] = ('value', )
+
+        relations = np.empty((enc_length, enc_length), dtype=np.int64)
         for i, j in itertools.product(range(enc_length), repeat=2):
             def set_relation(name):
                 relations[i, j] = self.relation_ids[name]
 
             i_type, j_type = loc_types[i], loc_types[j]
+            
+            # value는 question와의 관계만 본다.
+            # Overfitting의 위험이 있기는 하다.
+            # import IPython; IPython.embed(); exit(1);
+
             if i_type[0] == 'question':
                 if j_type[0] == 'question':
                     set_relation(('qq_dist', clamp(j - i, self.qq_max_dist)))
@@ -612,6 +664,13 @@ class RelationalTransformerUpdate(torch.nn.Module):
                         set_relation("qt" + sc_link["q_tab_match"][f"{i},{j_real}"])
                     else:
                         set_relation('qt_default')
+                elif j_type[0] == 'value':
+                    # set_relation('qv_default')
+                    j_real = j - v_base
+                    if f"{i},{j_real}" in qv_link['value_match']:
+                        set_relation("qv" + qv_link["value_match"][f"{i},{j_real}"])
+                    else:
+                        set_relation('qv_default')
 
             elif i_type[0] == 'column':
                 if j_type[0] == 'question':
@@ -655,6 +714,9 @@ class RelationalTransformerUpdate(torch.nn.Module):
                         elif col_table is None:
                             set_relation('ct_any_table')
 
+                elif j_type[0] == 'value':
+                    set_relation('cv_default')
+
             elif i_type[0] == 'table':
                 if j_type[0] == 'question':
                     # set_relation('tq_default')
@@ -693,6 +755,28 @@ class RelationalTransformerUpdate(torch.nn.Module):
                                 set_relation('tt_foreign_key_forward')
                             elif backward:
                                 set_relation('tt_foreign_key_backward')
+
+                elif j_type[0] == 'value':
+                    set_relation('tv_default')
+
+            elif i_type[0] == 'value':
+                if j_type[0] == 'question':
+                    # set_relation('vq_default')
+                    i_real = i - v_base
+                    if f"{j},{i_real}" in qv_link["value_match"]:
+                        set_relation("vq" + qv_link["value_match"][f"{j},{i_real}"])
+                    else:
+                        set_relation('vq_default')
+
+                elif j_type[0] == 'column':
+                    set_relation('vc_default')
+                
+                elif j_type[0] == 'table':
+                    set_relation('vt_default')
+
+                elif j_type[0] == 'value':
+                    set_relation(('vv_dist', clamp(j - i, self.vv_max_dist)))
+
         return relations
 
     @classmethod

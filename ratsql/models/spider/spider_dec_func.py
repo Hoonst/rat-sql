@@ -58,8 +58,10 @@ def compute_pointer_with_align(
     memory_pointer_probs = torch.nn.functional.softmax(
         memory_pointer_logits, dim=1)
     # pointer_logits shape: batch (=1) x num choices
+
     if node_type == "column":
         pointer_probs = torch.mm(memory_pointer_probs, desc_enc.m2c_align_mat)
+
     else:
         assert node_type == "table"
         pointer_probs = torch.mm(memory_pointer_probs, desc_enc.m2t_align_mat)

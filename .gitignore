@@ -163,3 +163,4 @@ RAT_SQL.egg-info
 logdir/
 data/
 third_party/
+wandb/

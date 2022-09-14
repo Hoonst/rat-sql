@@ -12,12 +12,14 @@ function(args) _base(output_from=_output_from, data_path=args.data_path) + {
     local base_bert_enc_size = if args.bert_version == "bert-large-uncased-whole-word-masking" then 1024 else 768,
     local enc_size =  base_bert_enc_size,
     local loss_s = args.loss,
+    local qv_link = args.qv_link,
 
-    model_name: 'bs=%(bs)d,lr=%(lr)s,bert_lr=%(bert_lr)s,end_lr=%(end_lr)s,att=%(att)d,loss=%(loss)s' % (args + {
+    model_name: 'bs=%(bs)d,lr=%(lr)s,bert_lr=%(bert_lr)s,end_lr=%(end_lr)s,att=%(att)d,loss=%(loss)s,qv_link=%(qv_link)s' % (args + {
         lr: lr_s,
         bert_lr: bert_lr_s,
         end_lr: end_lr_s,
-        loss: loss_s
+        loss: loss_s,
+        qv_link: qv_link,
     }),
 
     model+: {
@@ -28,12 +30,14 @@ function(args) _base(output_from=_output_from, data_path=args.data_path) + {
             column_encoder:: null,
             table_encoder:: null,
             dropout:: null,
+            enc_qv_link:: args.qv_link,
             update_config+:  {
                 name: 'relational_transformer',
                 num_layers: args.num_layers,
                 num_heads: 8,
                 sc_link: args.sc_link,
                 cv_link: args.cv_link,
+                qv_link: args.qv_link,
             },
             summarize_header: args.summarize_header,
             use_column_type: args.use_column_type,
@@ -41,6 +45,7 @@ function(args) _base(output_from=_output_from, data_path=args.data_path) + {
             bert_token_type: args.bert_token_type,
             top_k_learnable:: null,
             word_emb_size:: null,
+            qv_link:: args.qv_link,
         },
         encoder_preproc+: {
             word_emb:: null,

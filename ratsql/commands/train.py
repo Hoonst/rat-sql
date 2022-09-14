@@ -26,6 +26,7 @@ from ratsql.utils import saver as saver_mod
 
 # noinspection PyUnresolvedReferences
 from ratsql.utils import vocab
+import wandb
 
 
 @attr.s
@@ -78,7 +79,7 @@ class Logger:
 class Trainer:
     def __init__(self, logger, config):
         if torch.cuda.is_available():
-            self.device = torch.device('cuda')
+            self.device = torch.device('cuda:0')
         else:
             self.device = torch.device('cpu')
 
@@ -102,9 +103,13 @@ class Trainer:
             self.model = registry.construct('model', config['model'],
                                             unused_keys=('encoder_preproc', 'decoder_preproc'),
                                             preproc=self.model_preproc, device=self.device)
+
+            
             self.model.to(self.device)
 
     def train(self, config, modeldir):
+        wandb.init(project='Value Matching Train')
+        
         # slight difference here vs. unrefactored train: The init_random starts over here.
         # Could be fixed if it was important by saving random state at end of init
         with self.init_random:
@@ -252,8 +257,11 @@ class Trainer:
                         '''
 
                         loss = self.model.compute_loss(batch)
+                        
                         norm_loss = loss / self.train_config.num_batch_accumulated
                         norm_loss.backward()
+
+                        wandb.log({'loss': loss, 'norm_loss': norm_loss})
 
                     if self.train_config.clip_grad:
                         torch.nn.utils.clip_grad_norm_(optimizer.bert_param_group["params"], \
@@ -314,6 +322,7 @@ def add_parser():
 
 
 def main(args):
+    wandb.init()
     if args.config_args:
         config = json.loads(_jsonnet.evaluate_file(args.config, tla_codes={'args': args.config_args}))
     else:
@@ -340,4 +349,5 @@ def main(args):
 
 if __name__ == '__main__':
     args = add_parser()
+    
     main(args)

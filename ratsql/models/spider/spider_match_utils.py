@@ -99,7 +99,8 @@ def compute_cell_value_linking(tokens, schema):
 
     num_date_match = {}
     cell_match = {}
-
+    qv_match = {}
+    qv_match_word = []
     for q_id, word in enumerate(tokens):
         if len(word.strip()) == 0:
             continue
@@ -109,7 +110,8 @@ def compute_cell_value_linking(tokens, schema):
         num_flag = isnumber(word)
 
         CELL_MATCH_FLAG = "CELLMATCH"
-
+        VALUE_MATCH_FLAG = "VALUEMATCH"
+        val_id = 0
         for col_id, column in enumerate(schema.columns):
             if col_id == 0:
                 assert column.orig_name == "*"
@@ -124,6 +126,9 @@ def compute_cell_value_linking(tokens, schema):
                 if ret:
                     # print(word, ret)
                     cell_match[f"{q_id},{col_id}"] = CELL_MATCH_FLAG
+                    qv_match[f"{q_id},{val_id}"] = VALUE_MATCH_FLAG
+                    val_id += 1
+                    qv_match_word.append(word)
 
-    cv_link = {"num_date_match": num_date_match, "cell_match": cell_match}
+    cv_link = {"num_date_match": num_date_match, "cell_match": cell_match, "value_match": qv_match, "value_word": qv_match_word}
     return cv_link

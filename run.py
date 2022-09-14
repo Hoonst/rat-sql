@@ -8,7 +8,6 @@ import attr
 from ratsql.commands import preprocess, train, infer, eval
 import sys
 
-
 @attr.s
 class PreprocessConfig:
     config = attr.ib()
