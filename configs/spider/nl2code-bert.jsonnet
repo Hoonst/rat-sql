@@ -13,13 +13,15 @@ function(args) _base(output_from=_output_from, data_path=args.data_path) + {
     local enc_size =  base_bert_enc_size,
     local loss_s = args.loss,
     local qv_link = args.qv_link,
+    local dist_relation = args.dist_relation,
 
-    model_name: 'bs=%(bs)d,lr=%(lr)s,bert_lr=%(bert_lr)s,end_lr=%(end_lr)s,att=%(att)d,loss=%(loss)s,qv_link=%(qv_link)s' % (args + {
+    model_name: 'bs=%(bs)d,lr=%(lr)s,bert_lr=%(bert_lr)s,loss=%(loss)s,qv_link=%(qv_link)s,dist=%(dist_relation)s' % (args + {
         lr: lr_s,
         bert_lr: bert_lr_s,
         end_lr: end_lr_s,
         loss: loss_s,
         qv_link: qv_link,
+        dist_relation: dist_relation,
     }),
 
     model+: {
@@ -38,6 +40,7 @@ function(args) _base(output_from=_output_from, data_path=args.data_path) + {
                 sc_link: args.sc_link,
                 cv_link: args.cv_link,
                 qv_link: args.qv_link,
+                dist_relation: args.dist_relation,
             },
             summarize_header: args.summarize_header,
             use_column_type: args.use_column_type,

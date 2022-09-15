@@ -465,7 +465,7 @@ class EncoderLayer(nn.Module):
         [22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 26, 23, 23, 23, 23, 23, 23,
          23, 23, 23, 23, 24, 25, 25, 29, 29, 34]]
         '''
-
+        # import IPython; IPython.embed(); exit(1);
         relation_k = self.relation_k_emb(relation)
         relation_v = self.relation_v_emb(relation)
 

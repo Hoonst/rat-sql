@@ -310,6 +310,7 @@ class RelationalTransformerUpdate(torch.nn.Module):
                  sc_link=False,
                  cv_link=False,
                  qv_link=False,
+                 dist_relation=True,
                  ):
         super().__init__()
         self._device = device
@@ -329,9 +330,13 @@ class RelationalTransformerUpdate(torch.nn.Module):
         self.tc_foreign_key = tc_foreign_key
         self.tt_max_dist = tt_max_dist
         self.tt_foreign_key = tt_foreign_key
+        
+        # added
         self.vv_max_dist = 2
+        self.dist_relation = dist_relation
 
         self.relation_ids = {}
+        
 
         def add_relation(name):
             self.relation_ids[name] = len(self.relation_ids)
@@ -340,7 +345,10 @@ class RelationalTransformerUpdate(torch.nn.Module):
             for i in range(-max_dist, max_dist + 1):
                 add_relation((name, i))
 
-        add_rel_dist('qq_dist', qq_max_dist)
+        if self.dist_relation:
+            add_rel_dist('qq_dist', qq_max_dist)
+        else:
+            add_relation('qq_default')
 
         add_relation('qc_default')
         # if qc_token_match:
@@ -360,7 +368,9 @@ class RelationalTransformerUpdate(torch.nn.Module):
             add_relation('cc_foreign_key_backward')
         if cc_table_match:
             add_relation('cc_table_match')
-        add_rel_dist('cc_dist', cc_max_dist)
+
+        if self.dist_relation:
+            add_rel_dist('cc_dist', cc_max_dist)
 
         add_relation('ct_default')
         if ct_foreign_key:
@@ -385,7 +395,9 @@ class RelationalTransformerUpdate(torch.nn.Module):
             add_relation('tt_foreign_key_forward')
             add_relation('tt_foreign_key_backward')
             add_relation('tt_foreign_key_both')
-        add_rel_dist('tt_dist', tt_max_dist)
+
+        if self.dist_relation:
+            add_rel_dist('tt_dist', tt_max_dist)
 
         # schema linking relations
         # forward_backward
@@ -420,8 +432,14 @@ class RelationalTransformerUpdate(torch.nn.Module):
             add_relation("tv_default")
             add_relation("vt_default")
 
-            add_rel_dist('vv_dist', self.vv_max_dist)
+            if self.dist_relation:
+                add_rel_dist('vv_dist', self.vv_max_dist)
+            else:
+                add_relation('vv_default')
 
+        print(f'Used Relations: {len(self.relation_ids)}')
+
+        # What is the usage of this 'merge_types'?
         if merge_types:
             assert not cc_foreign_key
             assert not cc_table_match
@@ -435,6 +453,9 @@ class RelationalTransformerUpdate(torch.nn.Module):
             assert tt_max_dist == qq_max_dist
 
             add_relation('xx_default')
+            if not dist_relation:
+                self.relation_ids['qq_default'] = self.relation_ids['qq_default']
+
             self.relation_ids['qc_default'] = self.relation_ids['xx_default']
             self.relation_ids['qt_default'] = self.relation_ids['xx_default']
             self.relation_ids['cq_default'] = self.relation_ids['xx_default']
@@ -461,6 +482,8 @@ class RelationalTransformerUpdate(torch.nn.Module):
                 self.relation_ids["qcCELLMATCH"] = self.relation_ids['xx_default']
                 self.relation_ids["cqCELLMATCH"] = self.relation_ids['xx_default']
             if qv_link:
+                if not self.dist_relation:
+                    self.relation_ids['vv_default'] = self.relation_ids['xx_default']
                 self.relation_ids['qv_default'] = self.relation_ids['xx_default']
                 self.relation_ids['vq_default'] = self.relation_ids['xx_default']
 
@@ -473,12 +496,15 @@ class RelationalTransformerUpdate(torch.nn.Module):
                 self.relation_ids["qvVALUEMATCH"] = self.relation_ids["xx_default"]
                 self.relation_ids["vqVALUEMATCH"] = self.relation_ids["xx_default"]
 
-            for i in range(-qq_max_dist, qq_max_dist + 1):
-                self.relation_ids['cc_dist', i] = self.relation_ids['qq_dist', i]
-                self.relation_ids['tt_dist', i] = self.relation_ids['tt_dist', i]
+            if self.dist_relation:
+                for i in range(-qq_max_dist, qq_max_dist + 1):
+                    self.relation_ids['qq_dist', i] = self.relation_ids['qq_dist', i]
+                    self.relation_ids['cc_dist', i] = self.relation_ids['cc_dist', i]
+                    self.relation_ids['tt_dist', i] = self.relation_ids['tt_dist', i]
 
-                if qv_link:
-                    self.relation_ids["vv_dist"] = self.relation_ids['vv_dist', i]
+                    if qv_link:
+                        self.relation_ids["vv_dist"] = self.relation_ids['vv_dist', i]
+
 
         if ff_size is None:
             ff_size = hidden_size * 4
@@ -516,6 +542,7 @@ class RelationalTransformerUpdate(torch.nn.Module):
 
     def forward_unbatched(self, desc, q_enc, c_enc, c_boundaries, t_enc, t_boundaries, v_enc):
         # enc shape: total len x batch (=1) x recurrent size
+        # import IPython; IPython.embed(); exit(1);
         if len(v_enc):
             enc = torch.cat((q_enc, c_enc, t_enc, v_enc), dim=0)
         else:
@@ -626,8 +653,6 @@ class RelationalTransformerUpdate(torch.nn.Module):
 
         v_base = q_enc_length + c_enc_length + len(desc['tables'])
 
-        # import IPython; IPython.embed(); exit(1);
-
         if v_enc_length:
             for i in range(v_base, v_base+v_enc_length):
                 loc_types[i] = ('value', )
@@ -641,11 +666,25 @@ class RelationalTransformerUpdate(torch.nn.Module):
             
             # value는 question와의 관계만 본다.
             # Overfitting의 위험이 있기는 하다.
-            # import IPython; IPython.embed(); exit(1);
+            '''
+            ('question', )
+            loc_type = ('column', 0), ('column', 1) ...
+
+
+             [-4898466908673383396, -4897092229222556420, -4857469444370231970,
+            -4898376613444576544, -4864494490454951308, -4875452395147389032,
+            4387338291068098996...
+            
+            맨 처음 Relation들은 큰 숫자들로 입력이 되어 있음
+            
+            '''
 
             if i_type[0] == 'question':
                 if j_type[0] == 'question':
-                    set_relation(('qq_dist', clamp(j - i, self.qq_max_dist)))
+                    if self.dist_relation:
+                        set_relation(('qq_dist', clamp(j - i, self.qq_max_dist)))
+                    else:
+                        set_relation('qq_default')
                 elif j_type[0] == 'column':
                     # set_relation('qc_default')
                     j_real = j - c_base
@@ -686,8 +725,18 @@ class RelationalTransformerUpdate(torch.nn.Module):
                         set_relation('cq_default')
                 elif j_type[0] == 'column':
                     col1, col2 = i_type[1], j_type[1]
-                    if col1 == col2:
+
+                    '''
+                    Column 위치가 같은데 여기서 거리를 계산해봤자 과연 Relation에는 어떻게 저장될 것인가?
+                    모두 0일 것인가?
+
+                    Relation 중에서 distance -2,-1,1,2로 판명되는 경우는 없음
+                    
+                    아무리 생각해도...이유가 있을것이다...
+                    '''
+                    if self.dist_relation and col1 == col2:
                         set_relation(('cc_dist', clamp(j - i, self.cc_max_dist)))
+
                     else:
                         set_relation('cc_default')
                         if self.cc_foreign_key:
@@ -742,7 +791,7 @@ class RelationalTransformerUpdate(torch.nn.Module):
                             set_relation('tc_any_table')
                 elif j_type[0] == 'table':
                     table1, table2 = i_type[1], j_type[1]
-                    if table1 == table2:
+                    if self.dist_relation and table1 == table2:
                         set_relation(('tt_dist', clamp(j - i, self.tt_max_dist)))
                     else:
                         set_relation('tt_default')
@@ -775,8 +824,11 @@ class RelationalTransformerUpdate(torch.nn.Module):
                     set_relation('vt_default')
 
                 elif j_type[0] == 'value':
-                    set_relation(('vv_dist', clamp(j - i, self.vv_max_dist)))
-
+                    if self.dist_relation:
+                        set_relation(('vv_dist', clamp(j - i, self.vv_max_dist)))
+                    else:
+                        set_relation('vv_default')
+ 
         return relations
 
     @classmethod

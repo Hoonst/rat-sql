@@ -676,7 +676,7 @@ class SpiderEncoderBertPreproc(SpiderEncoderV2Preproc):
 
         self.counted_db_ids = set()
         self.preprocessed_schemas = {}
-
+        self.bert_version = bert_version
         self.tokenizer = BertTokenizer.from_pretrained(bert_version)
 
         # TODO: should get types from the data
@@ -764,6 +764,7 @@ class SpiderEncoderBertPreproc(SpiderEncoderV2Preproc):
                     f.write(json.dumps(text) + '\n')
 
     def load(self):
+        # import IPython; IPython.embed(); exit(1);
         self.tokenizer = BertTokenizer.from_pretrained(self.data_dir)
 
 
@@ -958,7 +959,6 @@ class SpiderEncoderBert(torch.nn.Module):
             assert col_enc.size()[0] == c_boundary[-1]
             assert tab_enc.size()[0] == t_boundary[-1]
 
-            # import IPython; IPython.embed(); exit(1);
             if self.qv_link:
                 val_enc.size()[0] == len(desc['cv_link']['value_word'])
             else:

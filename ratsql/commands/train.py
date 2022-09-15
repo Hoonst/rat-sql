@@ -108,7 +108,7 @@ class Trainer:
             self.model.to(self.device)
 
     def train(self, config, modeldir):
-        wandb.init(project='Value Matching Train')
+        wandb.init(project='Value Matching Train', name=config["model_name"])
         
         # slight difference here vs. unrefactored train: The init_random starts over here.
         # Could be fixed if it was important by saving random state at end of init
@@ -310,7 +310,7 @@ class Trainer:
 
         kv_stats = ", ".join(f"{k} = {v}" for k, v in stats.items())
         logger.log(f"Step {last_step} stats, {eval_section}: {kv_stats}")
-
+        
 
 def add_parser():
     parser = argparse.ArgumentParser()
@@ -322,7 +322,6 @@ def add_parser():
 
 
 def main(args):
-    wandb.init()
     if args.config_args:
         config = json.loads(_jsonnet.evaluate_file(args.config, tla_codes={'args': args.config_args}))
     else:

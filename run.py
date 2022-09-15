@@ -95,6 +95,7 @@ def main():
                 step,
                 use_heuristic=exp_config["eval_use_heuristic"],
             )
+            # import IPython; IPython.embed(); exit(1);
             infer.main(infer_config)
             eval_output_path = f"{exp_config['eval_output']}/{exp_config['eval_name']}-step{step}.eval"
             eval_config = EvalConfig(
@@ -116,13 +117,13 @@ def main():
             This will make iteration possible again.
             
             '''
-            end_lr = '0e0' if exp_config['model_config_args']['end_lr'] == 0 else 0
+            # end_lr = '0e0' if exp_config['model_config_args']['end_lr'] == 0 else 0
 
-            substring = f"{exp_config['logdir']}/bs={exp_config['model_config_args']['bs']},lr={format(exp_config['model_config_args']['lr'], '.1e')},bert_lr={format(exp_config['model_config_args']['bert_lr'], '.1e')},end_lr={end_lr},att={exp_config['model_config_args']['att']}"            
+            # substring = f"{exp_config['logdir']}/bs={exp_config['model_config_args']['bs']},lr={format(exp_config['model_config_args']['lr'], '.1e')},bert_lr={format(exp_config['model_config_args']['bert_lr'], '.1e')},loss={exp_config['model_config_args']['loss']},dist={exp_config['model_config_args']['dist_relation']}"            
 
-            eval_output_path = eval_output_path.replace('__LOGDIR__', substring)
-            res_json = json.load(open(eval_output_path))
-            print(step, res_json["total_scores"]["all"]["exact"])
+            # eval_output_path = eval_output_path.replace('__LOGDIR__', substring)
+            # res_json = json.load(open(eval_output_path))
+            # print(step, res_json["total_scores"]["all"]["exact"])
 
 
 if __name__ == "__main__":

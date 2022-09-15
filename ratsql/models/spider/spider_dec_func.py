@@ -60,8 +60,9 @@ def compute_pointer_with_align(
     # pointer_logits shape: batch (=1) x num choices
 
     if node_type == "column":
+        # Error Occurred When Used Value Mathching
+        
         pointer_probs = torch.mm(memory_pointer_probs, desc_enc.m2c_align_mat)
-
     else:
         assert node_type == "table"
         pointer_probs = torch.mm(memory_pointer_probs, desc_enc.m2t_align_mat)

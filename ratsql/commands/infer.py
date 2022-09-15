@@ -49,6 +49,7 @@ class Inferer:
         # 2. Restore its parameters
         saver = saver_mod.Saver({"model": model})
         last_step = saver.restore(logdir, step=step, map_location=self.device, item_keys=["model"])
+                
         if not last_step:
             raise Exception(f"Attempting to infer on untrained model in {logdir}, step={step}")
         return model
@@ -157,7 +158,7 @@ def main(args):
     if os.path.exists(output_path):
         print(f'Output file {output_path} already exists')
         sys.exit(1)
-
+        
     inferer = Inferer(config)
     model = inferer.load_model(args.logdir, args.step)
     inferer.infer(model, output_path, args)
