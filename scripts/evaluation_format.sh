@@ -1,2 +1,8 @@
-exp_name="bs=12,lr=7.4e-04,bert_lr=3.0e-06,loss=label_smooth,qv_link=false,dist=true"
+bs="12"
+loss="softmax"
+qv_link="true"
+dist_relation="true"
+orthog="false"
+
+exp_name="bs=$bs,loss=$loss,qv_link=$qv_link,dist_relation=$dist_relation,orthog=$orthog"
 python3 evaluation_format.py --experiment_name=${exp_name}

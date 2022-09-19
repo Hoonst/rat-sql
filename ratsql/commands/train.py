@@ -31,10 +31,10 @@ import wandb
 
 @attr.s
 class TrainConfig:
-    eval_every_n = attr.ib(default=100)
-    report_every_n = attr.ib(default=100)
-    save_every_n = attr.ib(default=100)
-    keep_every_n = attr.ib(default=1000)
+    eval_every_n = attr.ib(default=500)
+    report_every_n = attr.ib(default=500)
+    save_every_n = attr.ib(default=500)
+    keep_every_n = attr.ib(default=5000)
 
     batch_size = attr.ib(default=32)
     eval_batch_size = attr.ib(default=32)
@@ -104,11 +104,10 @@ class Trainer:
                                             unused_keys=('encoder_preproc', 'decoder_preproc'),
                                             preproc=self.model_preproc, device=self.device)
 
-            
             self.model.to(self.device)
 
     def train(self, config, modeldir):
-        wandb.init(project='Value Matching Train', name=config["model_name"])
+        wandb.init(project='Train', name=config["model_name"])
         
         # slight difference here vs. unrefactored train: The init_random starts over here.
         # Could be fixed if it was important by saving random state at end of init

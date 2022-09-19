@@ -441,6 +441,9 @@ class EncoderLayer(nn.Module):
         self.relation_k_emb = nn.Embedding(num_relation_kinds, self.self_attn.d_k)
         self.relation_v_emb = nn.Embedding(num_relation_kinds, self.self_attn.d_k)
 
+        nn.init.orthogonal_(self.relation_k_emb)
+        nn.init.orthogonal_(self.relation_v_emb)
+
     def forward(self, x, relation, mask):
         "Follow Figure 1 (left) for connections."
         ## relation_k,v shape: [seq_len, seq_len, emb_size = 32]

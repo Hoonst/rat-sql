@@ -14,14 +14,26 @@ function(args) _base(output_from=_output_from, data_path=args.data_path) + {
     local loss_s = args.loss,
     local qv_link = args.qv_link,
     local dist_relation = args.dist_relation,
-
-    model_name: 'bs=%(bs)d,lr=%(lr)s,bert_lr=%(bert_lr)s,loss=%(loss)s,qv_link=%(qv_link)s,dist=%(dist_relation)s' % (args + {
+    local orthog = args.use_orthogonal,
+    
+    model_name: 'bs=%(bs)d,loss=%(loss)s,qv_link=%(qv_link)s,dist=%(dist_relation)s,orthog=%(orthog)s' % (args + {
         lr: lr_s,
         bert_lr: bert_lr_s,
         end_lr: end_lr_s,
         loss: loss_s,
         qv_link: qv_link,
         dist_relation: dist_relation,
+        orthog: orthog,
+    
+    /* 
+    model_name: 'bs=%(bs)d,lr=%(lr)s,bert_lr=%(bert_lr)s,end_lr=%(end_lr)s,att=1,loss=%(loss)s,qv_link=%(qv_link)s' % (args + {
+        lr: lr_s,
+        bert_lr: bert_lr_s,
+        end_lr: end_lr_s,
+        loss: loss_s,
+        qv_link: qv_link,
+        dist_relation: dist_relation,
+    */
     }),
 
     model+: {

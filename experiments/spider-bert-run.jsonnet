@@ -3,7 +3,7 @@
     model_config: "configs/spider/nl2code-bert.jsonnet",
     model_config_args: {
         data_path: 'data/spider/',
-        bs: 12,
+        bs: 6,
         num_batch_accumulated: 4,
         bert_version: "bert-large-uncased-whole-word-masking",
         summarize_header: "avg",
@@ -13,12 +13,13 @@
         lr: 7.44e-4,
         bert_lr: 3e-6,
         att: 1,
-        loss: "softmax", 
+        loss: "softmax", # softmax, label_smooth
         end_lr: 0,
         sc_link: true,
         cv_link: true,
         qv_link: true,
-        dist_relation: false,
+        dist_relation: true,
+        use_orthogonal: false,
         use_align_mat: true,
         use_align_loss: true,
         bert_token_type: true,
@@ -31,6 +32,7 @@
     eval_output: "__LOGDIR__/ie_dirs",
     eval_beam_size: 1,
     eval_use_heuristic: true,
-    eval_steps: [10000 * x + 100 for x in std.range(1, 8)] + [81000],
+    eval_steps: [1] + [5000 * x + 500 for x in std.range(1, 5)],
+    # eval_steps: [10100],
     eval_section: "val",
 }
