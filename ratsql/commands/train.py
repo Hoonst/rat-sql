@@ -108,6 +108,7 @@ class Trainer:
 
     def train(self, config, modeldir):
         wandb.init(project='Train', name=config["model_name"])
+        self.logger.log(f"Train Parameters: batch_size: {config['train']['batch_size']}, loss: {config['model']['decoder']['loss_type']}, qv_link: {config['model']['encoder']['update_config']['qv_link']}, dist: {config['model']['encoder']['update_config']['dist_relation']}, use_orthogonal: {config['model']['encoder']['use_orthogonal']}")
         
         # slight difference here vs. unrefactored train: The init_random starts over here.
         # Could be fixed if it was important by saving random state at end of init
@@ -163,6 +164,8 @@ class Trainer:
 
             # .dataset > 단순 load
             train_data = self.model_preproc.dataset('train')
+            # train_data_loader는 batch size가 기존에 알고 있는 수치로 나타나지만
+            # train_eval_data_loader는 batch size가 50으로 나타나있다.
             train_data_loader = self._yield_batches_from_epochs(
                 torch.utils.data.DataLoader(
                     train_data,
@@ -190,7 +193,9 @@ class Trainer:
 
                 # Evaluate model
                 if last_step % self.train_config.eval_every_n == 0:
+                    # 파라미터 상 train_config.eval_on_train, train_config.eval_on_val 모두 true
                     if self.train_config.eval_on_train:
+                        # train data로 훈련한 모델을 train dataset에다가 적용
                         self._eval_model(self.logger, self.model, last_step, train_eval_data_loader, 'train',
                                          num_eval_items=self.train_config.num_eval_items)
                     if self.train_config.eval_on_val:
@@ -198,6 +203,7 @@ class Trainer:
                                          num_eval_items=self.train_config.num_eval_items)
 
                 # Compute and apply gradient
+                # import IPython; IPython.embed(); exit(1);
                 with self.model_random:
                     for _i in range(self.train_config.num_batch_accumulated):
                         if _i > 0:  batch = next(train_data_loader)
@@ -254,9 +260,53 @@ class Trainer:
                                         unused_keys=('encoder_preproc', 'decoder_preproc'),
                                         preproc=self.model_preproc, device=self.device)
                         '''
+                        if config['model']['encoder']['use_orthogonal']:
+                            loss = self.model.compute_loss(batch)
+                            
+                            reg_ratio = 1e-6
+                            for i in range(config['model']['encoder']['update_config']['num_layers']):
+                                weight_k = self.model.state_dict()[f'encoder.encs_update.encoder.layers.{i}.relation_k_emb.weight']
+                                weight_v = self.model.state_dict()[f'encoder.encs_update.encoder.layers.{i}.relation_v_emb.weight']
 
-                        loss = self.model.compute_loss(batch)
+                                weight_squared_k = weight_k.matmul(weight_k.T)
+                                weight_squared_v = weight_v.matmul(weight_v.T)
+
+                                ones = torch.ones(weight_squared_k.shape)
+                                diag = torch.eye(ones.shape[0])
+
+                                apply_matrix = ones-diag
+
+                                reg_k = ((weight_squared_k * (apply_matrix).to(self.device))**2).sum()
+                                reg_v = ((weight_squared_v * (apply_matrix).to(self.device))**2).sum()
+
+                                loss = loss + (reg_ratio * (reg_k + reg_v))
+
+                        else:
+                            loss = self.model.compute_loss(batch)
                         
+                        
+                        '''
+                        orthogonal regularization needed
+                        self.model 의 relation_k_emb / relation_v_emb을 추출하여
+                        orthogonal 적용하고 그 뒤에 더해주는 작업을 수행한다. 
+
+                        두 가지의 Example
+
+                        [example 1]
+                        with torch.enable_grad():
+                            reg = 1e-6
+                            orth_loss = torch.zeros(1)
+                            for name, param in model.named_parameters():
+                                if 'bias' not in name:
+                                    param_flat = param.view(param.shape[0], -1)
+                                    sym = torch.mm(param_flat, torch.t(param_flat))
+                                    sym -= torch.eye(param_flat.shape[0])
+                                    orth_loss = orth_loss + (reg * sym.abs().sum())
+
+                        [example 2]
+
+                        '''
+
                         norm_loss = loss / self.train_config.num_batch_accumulated
                         norm_loss.backward()
 

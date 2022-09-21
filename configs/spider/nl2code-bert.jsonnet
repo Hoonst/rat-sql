@@ -15,6 +15,7 @@ function(args) _base(output_from=_output_from, data_path=args.data_path) + {
     local qv_link = args.qv_link,
     local dist_relation = args.dist_relation,
     local orthog = args.use_orthogonal,
+    local orth_init = args.use_orth_init,
     
     model_name: 'bs=%(bs)d,loss=%(loss)s,qv_link=%(qv_link)s,dist=%(dist_relation)s,orthog=%(orthog)s' % (args + {
         lr: lr_s,
@@ -24,6 +25,19 @@ function(args) _base(output_from=_output_from, data_path=args.data_path) + {
         qv_link: qv_link,
         dist_relation: dist_relation,
         orthog: orthog,
+        orth_init: orth_init,
+    }),
+    /*
+    model_name: 'bs=%(bs)d,loss=%(loss)s,qv_link=%(qv_link)s,dist=%(dist_relation)s,orthog=%(orthog)s,orth_init=%(orth_init)s' % (args + {
+        lr: lr_s,
+        bert_lr: bert_lr_s,
+        end_lr: end_lr_s,
+        loss: loss_s,
+        qv_link: qv_link,
+        dist_relation: dist_relation,
+        orthog: orthog,
+        orth_init: orth_init,
+    */
     
     /* 
     model_name: 'bs=%(bs)d,lr=%(lr)s,bert_lr=%(bert_lr)s,end_lr=%(end_lr)s,att=1,loss=%(loss)s,qv_link=%(qv_link)s' % (args + {
@@ -33,8 +47,18 @@ function(args) _base(output_from=_output_from, data_path=args.data_path) + {
         loss: loss_s,
         qv_link: qv_link,
         dist_relation: dist_relation,
+
+    model_name: 'bs=%(bs)d,loss=%(loss)s,qv_link=%(qv_link)s,dist=%(dist_relation)s,orthog=%(orthog)s' % (args + {
+        lr: lr_s,
+        bert_lr: bert_lr_s,
+        end_lr: end_lr_s,
+        loss: loss_s,
+        qv_link: qv_link,
+        dist_relation: dist_relation,
+        orthog: orthog,
+        orth_init: orth_init,
     */
-    }),
+    
 
     model+: {
         encoder+: {
@@ -44,7 +68,6 @@ function(args) _base(output_from=_output_from, data_path=args.data_path) + {
             column_encoder:: null,
             table_encoder:: null,
             dropout:: null,
-            enc_qv_link:: args.qv_link,
             update_config+:  {
                 name: 'relational_transformer',
                 num_layers: args.num_layers,
@@ -53,14 +76,17 @@ function(args) _base(output_from=_output_from, data_path=args.data_path) + {
                 cv_link: args.cv_link,
                 qv_link: args.qv_link,
                 dist_relation: args.dist_relation,
+                orth_init: args.use_orth_init,
             },
+            enc_qv_link: args.qv_link,
+            use_orthogonal: args.use_orthogonal,
             summarize_header: args.summarize_header,
             use_column_type: args.use_column_type,
             bert_version: args.bert_version,
             bert_token_type: args.bert_token_type,
+            qv_link: args.qv_link,
             top_k_learnable:: null,
             word_emb_size:: null,
-            qv_link:: args.qv_link,
         },
         encoder_preproc+: {
             word_emb:: null,

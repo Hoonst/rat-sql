@@ -311,6 +311,7 @@ class RelationalTransformerUpdate(torch.nn.Module):
                  cv_link=False,
                  qv_link=False,
                  dist_relation=True,
+                 orth_init=False,
                  ):
         super().__init__()
         self._device = device
@@ -334,6 +335,7 @@ class RelationalTransformerUpdate(torch.nn.Module):
         # added
         self.vv_max_dist = 2
         self.dist_relation = dist_relation
+        self.orth_init = orth_init
 
         self.relation_ids = {}
         
@@ -420,6 +422,7 @@ class RelationalTransformerUpdate(torch.nn.Module):
             add_relation("cqCELLMATCH")
 
         if qv_link:
+            # No Match
             add_relation("qv_default")
             add_relation("vq_default")
             
@@ -434,6 +437,7 @@ class RelationalTransformerUpdate(torch.nn.Module):
 
             if self.dist_relation:
                 add_rel_dist('vv_dist', self.vv_max_dist)
+                # vv_dist는 (-2,-1,0,1,2)
             else:
                 add_relation('vv_default')
 
@@ -520,10 +524,12 @@ class RelationalTransformerUpdate(torch.nn.Module):
                     ff_size,
                     dropout),
                 len(self.relation_ids),
-                dropout),
+                dropout,
+                orth_init),
             hidden_size,
             num_layers,
-            tie_layers)
+            tie_layers,
+            )
 
         self.align_attn = transformer.PointerWithRelations(hidden_size,
                                                            len(self.relation_ids), dropout)

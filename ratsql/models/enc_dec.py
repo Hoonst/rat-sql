@@ -67,6 +67,7 @@ class EncDecModel(torch.nn.Module):
                 'decoder', decoder, device=device, preproc=preproc.dec_preproc)
         
         if getattr(self.encoder, 'batched'):
+            # getattr(self.encoder, 'batched') = True
             self.compute_loss = self._compute_loss_enc_batched
         else:
             self.compute_loss = self._compute_loss_unbatched

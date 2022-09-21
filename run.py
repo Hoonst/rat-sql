@@ -95,7 +95,6 @@ def main():
                 step,
                 use_heuristic=exp_config["eval_use_heuristic"],
             )
-            # import IPython; IPython.embed(); exit(1);
             infer.main(infer_config)
             eval_output_path = f"{exp_config['eval_output']}/{exp_config['eval_name']}-step{step}.eval"
             eval_config = EvalConfig(

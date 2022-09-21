@@ -764,7 +764,6 @@ class SpiderEncoderBertPreproc(SpiderEncoderV2Preproc):
                     f.write(json.dumps(text) + '\n')
 
     def load(self):
-        # import IPython; IPython.embed(); exit(1);
         self.tokenizer = BertTokenizer.from_pretrained(self.data_dir)
 
 
@@ -842,6 +841,10 @@ class SpiderEncoderBert(torch.nn.Module):
             # qv_link 파라미터를 어디서 가져올까?
             if self.qv_link and desc['cv_link']['value_word']:
                 vals = self.pad_single_sentence_for_bert(desc['cv_link']['value_word'], cls=True)
+                # 질문: vals - [CLS] 의 영향
+                # ['[CLS]', state, '[SEP]']
+                # ['[CLS]']의 의미 Github Issue
+
             else:
                 vals = []
             token_list = qs + [c for col in cols for c in col] + \
@@ -898,7 +901,10 @@ class SpiderEncoderBert(torch.nn.Module):
                 batch_id_to_retrieve_table_2.append(table_rep_ids_2)
 
             batch_id_map[batch_idx] = len(batch_id_map)
+            
 
+            # 질문: Batch_token_lists 가 왜 Max Len가 512가 아니라, 해당 배치의 Max Len
+        import IPython; IPython.embed(); exit(1);
         padded_token_lists, att_mask_lists, tok_type_lists = self.pad_sequence_for_bert_batch(batch_token_lists)
         tokens_tensor = torch.LongTensor(padded_token_lists).to(self._device)
         att_masks_tensor = torch.LongTensor(att_mask_lists).to(self._device)
@@ -943,6 +949,13 @@ class SpiderEncoderBert(torch.nn.Module):
                 col_enc = enc_output[bert_batch_idx][batch_id_to_retrieve_column[bert_batch_idx]]
                 tab_enc = enc_output[bert_batch_idx][batch_id_to_retrieve_table[bert_batch_idx]]
 
+                #질문: enc_output.shape                                                 
+                # torch.Size([50, 98, 1024])
+                # 왜 Batch 가 50?
+                # enc_output의 shape 탐색
+                # batch size가 50으로 나타나는 이유는 맨 처음에 eval을 한 번 하고 진행하기 때문이다.
+
+
                 if self.qv_link:
                     val_enc = enc_output[bert_batch_idx][batch_id_to_retrieve_value[bert_batch_idx]]
                 else:
@@ -954,6 +967,8 @@ class SpiderEncoderBert(torch.nn.Module):
 
                     col_enc = (col_enc + col_enc_2) / 2.0  # avg of first and last token
                     tab_enc = (tab_enc + tab_enc_2) / 2.0  # avg of first and last token
+
+                # import IPython; IPython.embed(); exit(1);
 
             assert q_enc.size()[0] == len(desc["question"])
             assert col_enc.size()[0] == c_boundary[-1]

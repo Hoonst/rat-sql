@@ -417,12 +417,14 @@ class EncoderLayer(nn.Module):
                 dropout)
     
     '''
-    def __init__(self, size, self_attn, feed_forward, num_relation_kinds, dropout):
+    def __init__(self, size, self_attn, feed_forward, num_relation_kinds, dropout, orth_init):
         super(EncoderLayer, self).__init__()
+
         self.self_attn = self_attn
         self.feed_forward = feed_forward
         self.sublayer = clones(lambda: SublayerConnection(size, dropout), 2)
         self.size = size
+        self.orth_init = orth_init
 
         ## relation embedding used in key computation
         ## relation embedding used in value computation
@@ -440,9 +442,10 @@ class EncoderLayer(nn.Module):
         '''
         self.relation_k_emb = nn.Embedding(num_relation_kinds, self.self_attn.d_k)
         self.relation_v_emb = nn.Embedding(num_relation_kinds, self.self_attn.d_k)
-
-        nn.init.orthogonal_(self.relation_k_emb)
-        nn.init.orthogonal_(self.relation_v_emb)
+        
+        if self.orth_init:
+            nn.init.orthogonal_(self.relation_k_emb.weight)
+            nn.init.orthogonal_(self.relation_v_emb.weight)
 
     def forward(self, x, relation, mask):
         "Follow Figure 1 (left) for connections."
