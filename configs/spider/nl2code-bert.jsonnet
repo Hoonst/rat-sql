@@ -16,50 +16,18 @@ function(args) _base(output_from=_output_from, data_path=args.data_path) + {
     local dist_relation = args.dist_relation,
     local orthog = args.use_orthogonal,
     local orth_init = args.use_orth_init,
+    local bi_way = args.bi_way,
+    local bi_match = args.bi_match,
     
-    model_name: 'bs=%(bs)d,loss=%(loss)s,qv_link=%(qv_link)s,dist=%(dist_relation)s,orthog=%(orthog)s' % (args + {
-        lr: lr_s,
-        bert_lr: bert_lr_s,
-        end_lr: end_lr_s,
-        loss: loss_s,
+    model_name: 'bs=%(bs)d,qv_link=%(qv_link)s,dist=%(dist_relation)s,orthog=%(orthog)s,orth_init=%(orth_init)s,bi_way=%(bi_way)s,bi_match=%(bi_match)s' % (args + {
         qv_link: qv_link,
         dist_relation: dist_relation,
         orthog: orthog,
         orth_init: orth_init,
+        bi_way: bi_way,
+        bi_match: bi_match,
     }),
-    /*
-    model_name: 'bs=%(bs)d,loss=%(loss)s,qv_link=%(qv_link)s,dist=%(dist_relation)s,orthog=%(orthog)s,orth_init=%(orth_init)s' % (args + {
-        lr: lr_s,
-        bert_lr: bert_lr_s,
-        end_lr: end_lr_s,
-        loss: loss_s,
-        qv_link: qv_link,
-        dist_relation: dist_relation,
-        orthog: orthog,
-        orth_init: orth_init,
-    */
     
-    /* 
-    model_name: 'bs=%(bs)d,lr=%(lr)s,bert_lr=%(bert_lr)s,end_lr=%(end_lr)s,att=1,loss=%(loss)s,qv_link=%(qv_link)s' % (args + {
-        lr: lr_s,
-        bert_lr: bert_lr_s,
-        end_lr: end_lr_s,
-        loss: loss_s,
-        qv_link: qv_link,
-        dist_relation: dist_relation,
-
-    model_name: 'bs=%(bs)d,loss=%(loss)s,qv_link=%(qv_link)s,dist=%(dist_relation)s,orthog=%(orthog)s' % (args + {
-        lr: lr_s,
-        bert_lr: bert_lr_s,
-        end_lr: end_lr_s,
-        loss: loss_s,
-        qv_link: qv_link,
-        dist_relation: dist_relation,
-        orthog: orthog,
-        orth_init: orth_init,
-    */
-    
-
     model+: {
         encoder+: {
             name: 'spider-bert',
@@ -77,6 +45,8 @@ function(args) _base(output_from=_output_from, data_path=args.data_path) + {
                 qv_link: args.qv_link,
                 dist_relation: args.dist_relation,
                 orth_init: args.use_orth_init,
+                bi_match: args.bi_match,
+                bi_way: args.bi_way,
             },
             enc_qv_link: args.qv_link,
             use_orthogonal: args.use_orthogonal,

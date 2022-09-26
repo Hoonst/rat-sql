@@ -1,0 +1,116 @@
+<html>
+<head>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/vis-network@latest/styles/vis-network.css" type="text/css" />
+<script type="text/javascript" src="https://cdn.jsdelivr.net/npm/vis-network@latest/dist/vis-network.min.js"> </script>
+<center>
+<h1></h1>
+</center>
+
+<!-- <link rel="stylesheet" href="../node_modules/vis/dist/vis.min.css" type="text/css" />
+<script type="text/javascript" src="../node_modules/vis/dist/vis.js"> </script>-->
+
+<style type="text/css">
+
+        #mynetwork {
+            width: 500px;
+            height: 500px;
+            background-color: #ffffff;
+            border: 1px solid lightgray;
+            position: relative;
+            float: left;
+        }
+
+        
+
+        
+
+        
+</style>
+
+</head>
+
+<body>
+<div id = "mynetwork"></div>
+
+
+<script type="text/javascript">
+
+    // initialize global variables.
+    var edges;
+    var nodes;
+    var network; 
+    var container;
+    var options, data;
+
+    
+    // This method is responsible for drawing the graph, returns the drawn network
+    function drawGraph() {
+        var container = document.getElementById('mynetwork');
+        
+        
+
+        // parsing and collecting nodes and edges from the python
+        nodes = new vis.DataSet([{"id": 0, "label": "(\u0027qq_dist\u0027, -2)", "shape": "dot"}, {"id": 1, "label": "(\u0027qq_dist\u0027, -1)", "shape": "dot"}, {"id": 2, "label": "(\u0027qq_dist\u0027, 0)", "shape": "dot"}, {"id": 3, "label": "(\u0027qq_dist\u0027, 1)", "shape": "dot"}, {"id": 4, "label": "(\u0027qq_dist\u0027, 2)", "shape": "dot"}, {"id": 5, "label": "qc_default", "shape": "dot"}, {"id": 6, "label": "qt_default", "shape": "dot"}, {"id": 7, "label": "cq_default", "shape": "dot"}, {"id": 8, "label": "cc_default", "shape": "dot"}, {"id": 9, "label": "cc_foreign_key_forward", "shape": "dot"}, {"id": 10, "label": "cc_foreign_key_backward", "shape": "dot"}, {"id": 11, "label": "cc_table_match", "shape": "dot"}, {"id": 12, "label": "(\u0027cc_dist\u0027, -2)", "shape": "dot"}, {"id": 13, "label": "(\u0027cc_dist\u0027, -1)", "shape": "dot"}, {"id": 14, "label": "(\u0027cc_dist\u0027, 0)", "shape": "dot"}, {"id": 15, "label": "(\u0027cc_dist\u0027, 1)", "shape": "dot"}, {"id": 16, "label": "(\u0027cc_dist\u0027, 2)", "shape": "dot"}, {"id": 17, "label": "ct_default", "shape": "dot"}, {"id": 18, "label": "ct_foreign_key", "shape": "dot"}, {"id": 19, "label": "ct_primary_key", "shape": "dot"}, {"id": 20, "label": "ct_table_match", "shape": "dot"}, {"id": 21, "label": "ct_any_table", "shape": "dot"}, {"id": 22, "label": "tq_default", "shape": "dot"}, {"id": 23, "label": "tc_default", "shape": "dot"}, {"id": 24, "label": "tc_primary_key", "shape": "dot"}, {"id": 25, "label": "tc_table_match", "shape": "dot"}, {"id": 26, "label": "tc_any_table", "shape": "dot"}, {"id": 27, "label": "tc_foreign_key", "shape": "dot"}, {"id": 28, "label": "tt_default", "shape": "dot"}, {"id": 29, "label": "tt_foreign_key_forward", "shape": "dot"}, {"id": 30, "label": "tt_foreign_key_backward", "shape": "dot"}, {"id": 31, "label": "tt_foreign_key_both", "shape": "dot"}, {"id": 32, "label": "(\u0027tt_dist\u0027, -2)", "shape": "dot"}, {"id": 33, "label": "(\u0027tt_dist\u0027, -1)", "shape": "dot"}, {"id": 34, "label": "(\u0027tt_dist\u0027, 0)", "shape": "dot"}, {"id": 35, "label": "(\u0027tt_dist\u0027, 1)", "shape": "dot"}, {"id": 36, "label": "(\u0027tt_dist\u0027, 2)", "shape": "dot"}, {"id": 37, "label": "qcCEM", "shape": "dot"}, {"id": 38, "label": "cqCEM", "shape": "dot"}, {"id": 39, "label": "qtTEM", "shape": "dot"}, {"id": 40, "label": "tqTEM", "shape": "dot"}, {"id": 41, "label": "qcCPM", "shape": "dot"}, {"id": 42, "label": "cqCPM", "shape": "dot"}, {"id": 43, "label": "qtTPM", "shape": "dot"}, {"id": 44, "label": "tqTPM", "shape": "dot"}, {"id": 45, "label": "qcNUMBER", "shape": "dot"}, {"id": 46, "label": "cqNUMBER", "shape": "dot"}, {"id": 47, "label": "qcTIME", "shape": "dot"}, {"id": 48, "label": "cqTIME", "shape": "dot"}, {"id": 49, "label": "qcCELLMATCH", "shape": "dot"}, {"id": 50, "label": "cqCELLMATCH", "shape": "dot"}]);
+        edges = new vis.DataSet([{"from": 0, "to": 34, "weight": 1}, {"from": 0, "to": 14, "weight": 1}, {"from": 0, "to": 43, "weight": 1}, {"from": 0, "to": 18, "weight": 1}, {"from": 0, "to": 22, "weight": 1}, {"from": 1, "to": 17, "weight": 1}, {"from": 1, "to": 29, "weight": 1}, {"from": 1, "to": 12, "weight": 1}, {"from": 1, "to": 33, "weight": 1}, {"from": 1, "to": 14, "weight": 1}, {"from": 2, "to": 26, "weight": 1}, {"from": 2, "to": 46, "weight": 1}, {"from": 2, "to": 17, "weight": 1}, {"from": 2, "to": 29, "weight": 1}, {"from": 2, "to": 48, "weight": 1}, {"from": 3, "to": 24, "weight": 1}, {"from": 3, "to": 40, "weight": 1}, {"from": 3, "to": 35, "weight": 1}, {"from": 3, "to": 50, "weight": 1}, {"from": 3, "to": 2, "weight": 1}, {"from": 4, "to": 40, "weight": 1}, {"from": 4, "to": 6, "weight": 1}, {"from": 4, "to": 47, "weight": 1}, {"from": 4, "to": 31, "weight": 1}, {"from": 4, "to": 11, "weight": 1}, {"from": 5, "to": 47, "weight": 1}, {"from": 5, "to": 6, "weight": 1}, {"from": 5, "to": 13, "weight": 1}, {"from": 5, "to": 23, "weight": 1}, {"from": 5, "to": 7, "weight": 1}, {"from": 6, "to": 16, "weight": 1}, {"from": 6, "to": 31, "weight": 1}, {"from": 6, "to": 21, "weight": 1}, {"from": 6, "to": 2, "weight": 1}, {"from": 7, "to": 14, "weight": 1}, {"from": 7, "to": 17, "weight": 1}, {"from": 7, "to": 40, "weight": 1}, {"from": 7, "to": 19, "weight": 1}, {"from": 7, "to": 50, "weight": 1}, {"from": 8, "to": 11, "weight": 1}, {"from": 8, "to": 17, "weight": 1}, {"from": 8, "to": 14, "weight": 1}, {"from": 8, "to": 16, "weight": 1}, {"from": 8, "to": 12, "weight": 1}, {"from": 9, "to": 15, "weight": 1}, {"from": 9, "to": 10, "weight": 1}, {"from": 9, "to": 38, "weight": 1}, {"from": 9, "to": 25, "weight": 1}, {"from": 9, "to": 43, "weight": 1}, {"from": 10, "to": 43, "weight": 1}, {"from": 10, "to": 11, "weight": 1}, {"from": 10, "to": 28, "weight": 1}, {"from": 10, "to": 26, "weight": 1}, {"from": 11, "to": 43, "weight": 1}, {"from": 11, "to": 26, "weight": 1}, {"from": 11, "to": 29, "weight": 1}, {"from": 11, "to": 24, "weight": 1}, {"from": 12, "to": 17, "weight": 1}, {"from": 12, "to": 49, "weight": 1}, {"from": 12, "to": 35, "weight": 1}, {"from": 12, "to": 36, "weight": 1}, {"from": 13, "to": 16, "weight": 1}, {"from": 13, "to": 27, "weight": 1}, {"from": 13, "to": 42, "weight": 1}, {"from": 13, "to": 28, "weight": 1}, {"from": 13, "to": 40, "weight": 1}, {"from": 14, "to": 18, "weight": 1}, {"from": 14, "to": 36, "weight": 1}, {"from": 14, "to": 26, "weight": 1}, {"from": 15, "to": 20, "weight": 1}, {"from": 15, "to": 2, "weight": 1}, {"from": 15, "to": 45, "weight": 1}, {"from": 15, "to": 36, "weight": 1}, {"from": 16, "to": 29, "weight": 1}, {"from": 16, "to": 49, "weight": 1}, {"from": 17, "to": 22, "weight": 1}, {"from": 17, "to": 26, "weight": 1}, {"from": 18, "to": 29, "weight": 1}, {"from": 18, "to": 43, "weight": 1}, {"from": 18, "to": 25, "weight": 1}, {"from": 18, "to": 45, "weight": 1}, {"from": 19, "to": 25, "weight": 1}, {"from": 19, "to": 20, "weight": 1}, {"from": 19, "to": 30, "weight": 1}, {"from": 19, "to": 45, "weight": 1}, {"from": 19, "to": 31, "weight": 1}, {"from": 20, "to": 43, "weight": 1}, {"from": 20, "to": 31, "weight": 1}, {"from": 20, "to": 25, "weight": 1}, {"from": 21, "to": 35, "weight": 1}, {"from": 21, "to": 48, "weight": 1}, {"from": 21, "to": 24, "weight": 1}, {"from": 21, "to": 47, "weight": 1}, {"from": 22, "to": 46, "weight": 1}, {"from": 22, "to": 27, "weight": 1}, {"from": 22, "to": 39, "weight": 1}, {"from": 23, "to": 27, "weight": 1}, {"from": 23, "to": 34, "weight": 1}, {"from": 23, "to": 42, "weight": 1}, {"from": 23, "to": 46, "weight": 1}, {"from": 24, "to": 35, "weight": 1}, {"from": 24, "to": 30, "weight": 1}, {"from": 25, "to": 45, "weight": 1}, {"from": 25, "to": 30, "weight": 1}, {"from": 25, "to": 32, "weight": 1}, {"from": 26, "to": 8, "weight": 1}, {"from": 27, "to": 46, "weight": 1}, {"from": 27, "to": 37, "weight": 1}, {"from": 27, "to": 2, "weight": 1}, {"from": 28, "to": 43, "weight": 1}, {"from": 28, "to": 41, "weight": 1}, {"from": 28, "to": 39, "weight": 1}, {"from": 29, "to": 47, "weight": 1}, {"from": 29, "to": 48, "weight": 1}, {"from": 30, "to": 29, "weight": 1}, {"from": 30, "to": 20, "weight": 1}, {"from": 31, "to": 27, "weight": 1}, {"from": 31, "to": 41, "weight": 1}, {"from": 32, "to": 45, "weight": 1}, {"from": 32, "to": 29, "weight": 1}, {"from": 32, "to": 17, "weight": 1}, {"from": 32, "to": 12, "weight": 1}, {"from": 33, "to": 36, "weight": 1}, {"from": 33, "to": 44, "weight": 1}, {"from": 33, "to": 16, "weight": 1}, {"from": 33, "to": 40, "weight": 1}, {"from": 34, "to": 38, "weight": 1}, {"from": 34, "to": 35, "weight": 1}, {"from": 34, "to": 44, "weight": 1}, {"from": 36, "to": 39, "weight": 1}, {"from": 37, "to": 50, "weight": 1}, {"from": 37, "to": 41, "weight": 1}, {"from": 37, "to": 11, "weight": 1}, {"from": 37, "to": 36, "weight": 1}, {"from": 38, "to": 44, "weight": 1}, {"from": 38, "to": 39, "weight": 1}, {"from": 38, "to": 6, "weight": 1}, {"from": 39, "to": 50, "weight": 1}, {"from": 40, "to": 50, "weight": 1}, {"from": 41, "to": 43, "weight": 1}, {"from": 41, "to": 17, "weight": 1}, {"from": 41, "to": 40, "weight": 1}, {"from": 42, "to": 50, "weight": 1}, {"from": 42, "to": 21, "weight": 1}, {"from": 42, "to": 35, "weight": 1}, {"from": 44, "to": 5, "weight": 1}, {"from": 44, "to": 0, "weight": 1}, {"from": 45, "to": 48, "weight": 1}, {"from": 46, "to": 48, "weight": 1}, {"from": 46, "to": 35, "weight": 1}, {"from": 47, "to": 48, "weight": 1}, {"from": 47, "to": 19, "weight": 1}, {"from": 47, "to": 2, "weight": 1}, {"from": 49, "to": 50, "weight": 1}, {"from": 49, "to": 14, "weight": 1}, {"from": 49, "to": 37, "weight": 1}]);
+
+        // adding nodes and edges to the graph
+        data = {nodes: nodes, edges: edges};
+
+        var options = {
+    "configure": {
+        "enabled": false
+    },
+    "edges": {
+        "color": {
+            "inherit": true
+        },
+        "smooth": {
+            "enabled": true,
+            "type": "dynamic"
+        }
+    },
+    "interaction": {
+        "dragNodes": true,
+        "hideEdgesOnDrag": false,
+        "hideNodesOnDrag": false
+    },
+    "physics": {
+        "barnesHut": {
+            "avoidOverlap": 0,
+            "centralGravity": 0.3,
+            "damping": 0.09,
+            "gravitationalConstant": -80000,
+            "springConstant": 0.001,
+            "springLength": 250
+        },
+        "enabled": true,
+        "stabilization": {
+            "enabled": true,
+            "fit": true,
+            "iterations": 1000,
+            "onlyDynamicEdges": false,
+            "updateInterval": 50
+        }
+    }
+};
+        
+        
+
+        
+
+        network = new vis.Network(container, data, options);
+	 
+        
+
+
+        
+
+        return network;
+
+    }
+
+    drawGraph();
+
+</script>
+</body>
+</html>

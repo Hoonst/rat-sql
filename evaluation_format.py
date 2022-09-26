@@ -32,7 +32,7 @@ def format_eval(args):
     print(os.curdir)   
     eval_folder = ratsql_infereval_loc + '*.eval'
     print(eval_folder)
-    eval_list = sorted(glob.glob(eval_folder))
+    eval_list = sorted(glob.glob(eval_folder), key=lambda x: int(x.split('-')[-1][4:-5]))
     
     step_result = {}
 
@@ -53,9 +53,9 @@ def format_eval(args):
 
         step_result[step] = {}
         for hardness in hardness_cnt.keys():
-            step_result[step][hardness] = round(exact_match[hardness] / hardness_cnt[hardness], 3) * 100
+            step_result[step][hardness] = round(exact_match[hardness] / hardness_cnt[hardness], 4) * 100
             print(f"{hardness}: {exact_match[hardness] / hardness_cnt[hardness]}")
-        step_result[step]['overall'] = round(overall / 1034, 3) * 100
+        step_result[step]['overall'] = round(overall / 1034, 4) * 100
 
         print(f"Overall: {overall / 1034}")
 

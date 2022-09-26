@@ -108,7 +108,7 @@ class Trainer:
 
     def train(self, config, modeldir):
         wandb.init(project='Train', name=config["model_name"])
-        self.logger.log(f"Train Parameters: batch_size: {config['train']['batch_size']}, loss: {config['model']['decoder']['loss_type']}, qv_link: {config['model']['encoder']['update_config']['qv_link']}, dist: {config['model']['encoder']['update_config']['dist_relation']}, use_orthogonal: {config['model']['encoder']['use_orthogonal']}")
+        self.logger.log(f"Train Parameters: batch_size: {config['train']['batch_size']}, loss: {config['model']['decoder']['loss_type']}, qv_link: {config['model']['encoder']['update_config']['qv_link']}, dist: {config['model']['encoder']['update_config']['dist_relation']}, use_orthogonal: {config['model']['encoder']['use_orthogonal']}, orth_init: {config['model']['encoder']['update_config']['orth_init']}")
         
         # slight difference here vs. unrefactored train: The init_random starts over here.
         # Could be fixed if it was important by saving random state at end of init
@@ -144,7 +144,8 @@ class Trainer:
         saver = saver_mod.Saver(
             {"model": self.model, "optimizer": optimizer}, keep_every_n=self.train_config.keep_every_n)
         last_step = saver.restore(modeldir, map_location=self.device)
-
+        # import IPython; IPython.embed(); exit(1);
+        
         #lr fix to not break scheduler when loading from checkpoint
         lr_scheduler.param_groups = optimizer.param_groups
 
@@ -392,6 +393,7 @@ def main(args):
 
     # Construct trainer and do training
     trainer = Trainer(logger, config)
+    
     trainer.train(config, modeldir=args.logdir)
 
 

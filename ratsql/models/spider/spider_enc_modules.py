@@ -312,6 +312,8 @@ class RelationalTransformerUpdate(torch.nn.Module):
                  qv_link=False,
                  dist_relation=True,
                  orth_init=False,
+                 bi_match=True,
+                 bi_way=True
                  ):
         super().__init__()
         self._device = device
@@ -336,6 +338,8 @@ class RelationalTransformerUpdate(torch.nn.Module):
         self.vv_max_dist = 2
         self.dist_relation = dist_relation
         self.orth_init = orth_init
+        self.bi_match = bi_match
+        self.bi_way = bi_way
 
         self.relation_ids = {}
         
@@ -350,24 +354,29 @@ class RelationalTransformerUpdate(torch.nn.Module):
         if self.dist_relation:
             add_rel_dist('qq_dist', qq_max_dist)
         else:
+            # qq_default doesn't exist in original status
+            # added to replace qq_dist when qq_dist is not being used
             add_relation('qq_default')
 
-        add_relation('qc_default')
-        # if qc_token_match:
-        #    add_relation('qc_token_match')
+        if self.bi_way:
+            add_relation('qc_default')
+            add_relation('qt_default')
+            add_relation('cq_default')
+            add_relation('cc_default')
+            
+        elif not self.bi_way:
+            add_relation('qc_default')
+            add_relation('qt_default')
+            add_relation('cc_default')
+            
 
-        add_relation('qt_default')
-        # if qt_token_match:
-        #    add_relation('qt_token_match')
-
-        add_relation('cq_default')
-        # if cq_token_match:
-        #    add_relation('cq_token_match')
-
-        add_relation('cc_default')
         if cc_foreign_key:
-            add_relation('cc_foreign_key_forward')
-            add_relation('cc_foreign_key_backward')
+            if self.bi_way:
+                add_relation('cc_foreign_key_forward')
+                add_relation('cc_foreign_key_backward')
+            else:
+                add_relation('cc_foreign_key_forward')
+
         if cc_table_match:
             add_relation('cc_table_match')
 
@@ -375,28 +384,42 @@ class RelationalTransformerUpdate(torch.nn.Module):
             add_rel_dist('cc_dist', cc_max_dist)
 
         add_relation('ct_default')
-        if ct_foreign_key:
-            add_relation('ct_foreign_key')
-        if ct_table_match:
-            add_relation('ct_primary_key')
-            add_relation('ct_table_match')
-            add_relation('ct_any_table')
 
-        add_relation('tq_default')
+        if self.bi_way:
+            if ct_foreign_key:
+                add_relation('ct_foreign_key')
+            if ct_table_match:
+                add_relation('ct_primary_key')
+                add_relation('ct_table_match')
+                add_relation('ct_any_table')
 
-        add_relation('tc_default')
-        if tc_table_match:
-            add_relation('tc_primary_key')
-            add_relation('tc_table_match')
-            add_relation('tc_any_table')
-        if tc_foreign_key:
-            add_relation('tc_foreign_key')
+            add_relation('tq_default')
+            add_relation('tc_default')
+            
+            if tc_table_match:
+                add_relation('tc_primary_key')
+                add_relation('tc_table_match')
+                add_relation('tc_any_table')
+            if tc_foreign_key:
+                add_relation('tc_foreign_key')
+
+        elif not self.bi_way:
+            if ct_foreign_key and tc_foreign_key:
+                add_relation('ct_foreign_key')
+            if ct_table_match and tc_table_match:
+                add_relation('ct_primary_key')
+                add_relation('ct_table_match')
+                add_relation('ct_any_table')
 
         add_relation('tt_default')
+
         if tt_foreign_key:
-            add_relation('tt_foreign_key_forward')
-            add_relation('tt_foreign_key_backward')
-            add_relation('tt_foreign_key_both')
+            if self.bi_way:
+                add_relation('tt_foreign_key_forward')
+                add_relation('tt_foreign_key_backward')
+                add_relation('tt_foreign_key_both')
+            elif not self.bi_way:
+                add_relation('tt_foreign_key_forward')
 
         if self.dist_relation:
             add_rel_dist('tt_dist', tt_max_dist)
@@ -404,22 +427,45 @@ class RelationalTransformerUpdate(torch.nn.Module):
         # schema linking relations
         # forward_backward
         if sc_link:
-            add_relation('qcCEM')
-            add_relation('cqCEM')
-            add_relation('qtTEM')
-            add_relation('tqTEM')
-            add_relation('qcCPM')
-            add_relation('cqCPM')
-            add_relation('qtTPM')
-            add_relation('tqTPM')
+            if self.bi_match and self.bi_way:
+                add_relation('qcCEM')
+                add_relation('cqCEM')
+                add_relation('qtTEM')
+                add_relation('tqTEM')
+                add_relation('qcCPM')
+                add_relation('cqCPM')
+                add_relation('qtTPM')
+                add_relation('tqTPM')
+
+            elif self.bi_match and not self.bi_way:
+                add_relation('qcCEM')
+                add_relation('qtTEM')
+                add_relation('qcCPM')
+                add_relation('qtTPM')
+
+            elif not self.bi_match and self.bi_way:
+                add_relation('qcCEM')
+                add_relation('cqCEM')
+                add_relation('qtTEM')
+                add_relation('tqTEM')
+
+            elif not self.bi_match and not self.bi_way:
+                add_relation('qcCEM')
+                add_relation('qtTEM')
 
         if cv_link:
-            add_relation("qcNUMBER")
-            add_relation("cqNUMBER")
-            add_relation("qcTIME")
-            add_relation("cqTIME")
-            add_relation("qcCELLMATCH")
-            add_relation("cqCELLMATCH")
+            if self.bi_way:
+                add_relation("qcNUMBER")
+                add_relation("cqNUMBER")
+                add_relation("qcTIME")
+                add_relation("cqTIME")
+                add_relation("qcCELLMATCH")
+                add_relation("cqCELLMATCH")
+
+            elif not self.bi_way:
+                add_relation("qcNUMBER")
+                add_relation("qcTIME")
+                add_relation("qcCELLMATCH")
 
         if qv_link:
             # No Match
@@ -508,7 +554,6 @@ class RelationalTransformerUpdate(torch.nn.Module):
 
                     if qv_link:
                         self.relation_ids["vv_dist"] = self.relation_ids['vv_dist', i]
-
 
         if ff_size is None:
             ff_size = hidden_size * 4
@@ -691,24 +736,36 @@ class RelationalTransformerUpdate(torch.nn.Module):
                         set_relation(('qq_dist', clamp(j - i, self.qq_max_dist)))
                     else:
                         set_relation('qq_default')
+
                 elif j_type[0] == 'column':
                     # set_relation('qc_default')
                     j_real = j - c_base
+
                     if f"{i},{j_real}" in sc_link["q_col_match"]:
-                        set_relation("qc" + sc_link["q_col_match"][f"{i},{j_real}"])
+                        if self.bi_match:
+                            set_relation("qc" + sc_link["q_col_match"][f"{i},{j_real}"])
+                        elif not self.bi_match:
+                            # if not self.bi_match > Only use CEM
+                            set_relation("qcCEM")
                     elif f"{i},{j_real}" in cv_link["cell_match"]:
                         set_relation("qc" + cv_link["cell_match"][f"{i},{j_real}"])
                     elif f"{i},{j_real}" in cv_link["num_date_match"]:
                         set_relation("qc" + cv_link["num_date_match"][f"{i},{j_real}"])
                     else:
                         set_relation('qc_default')
+
                 elif j_type[0] == 'table':
                     # set_relation('qt_default')
                     j_real = j - t_base
                     if f"{i},{j_real}" in sc_link["q_tab_match"]:
-                        set_relation("qt" + sc_link["q_tab_match"][f"{i},{j_real}"])
+                        if self.bi_match:
+                            set_relation("qt" + sc_link["q_tab_match"][f"{i},{j_real}"])
+                        elif not self.bi_match:
+                            # if not self.bi_match > Only use TEM
+                            set_relation('qtTEM')
                     else:
                         set_relation('qt_default')
+
                 elif j_type[0] == 'value':
                     # set_relation('qv_default')
                     j_real = j - v_base
@@ -721,14 +778,46 @@ class RelationalTransformerUpdate(torch.nn.Module):
                 if j_type[0] == 'question':
                     # set_relation('cq_default')
                     i_real = i - c_base
-                    if f"{j},{i_real}" in sc_link["q_col_match"]:
-                        set_relation("cq" + sc_link["q_col_match"][f"{j},{i_real}"])
-                    elif f"{j},{i_real}" in cv_link["cell_match"]:
-                        set_relation("cq" + cv_link["cell_match"][f"{j},{i_real}"])
-                    elif f"{j},{i_real}" in cv_link["num_date_match"]:
-                        set_relation("cq" + cv_link["num_date_match"][f"{j},{i_real}"])
-                    else:
-                        set_relation('cq_default')
+                    if self.bi_match and self.bi_way:
+                        if f"{j},{i_real}" in sc_link["q_col_match"]:
+                            set_relation("cq" + sc_link["q_col_match"][f"{j},{i_real}"])
+                        elif f"{j},{i_real}" in cv_link["cell_match"]:
+                            set_relation("cq" + cv_link["cell_match"][f"{j},{i_real}"])
+                        elif f"{j},{i_real}" in cv_link["num_date_match"]:
+                            set_relation("cq" + cv_link["num_date_match"][f"{j},{i_real}"])
+                        else:
+                            set_relation('cq_default')
+
+                    elif not self.bi_match and self.bi_way:
+                        if f"{j},{i_real}" in sc_link["q_col_match"]:
+                            set_relation("cqCEM")
+                        elif f"{j},{i_real}" in cv_link["cell_match"]:
+                            set_relation("cq" + cv_link["cell_match"][f"{j},{i_real}"])
+                        elif f"{j},{i_real}" in cv_link["num_date_match"]:
+                            set_relation("cq" + cv_link["num_date_match"][f"{j},{i_real}"])
+                        else:
+                            set_relation('cq_default')
+
+                    elif self.bi_match and not self.bi_way:
+                        if f"{j},{i_real}" in sc_link["q_col_match"]:
+                            set_relation("qc" + sc_link["q_col_match"][f"{j},{i_real}"])
+                        elif f"{j},{i_real}" in cv_link["cell_match"]:
+                            set_relation("qc" + cv_link["cell_match"][f"{j},{i_real}"])
+                        elif f"{j},{i_real}" in cv_link["num_date_match"]:
+                            set_relation("qc" + cv_link["num_date_match"][f"{j},{i_real}"])
+                        else:
+                            set_relation('qc_default')
+
+                    elif not self.bi_match and not self.bi_way:
+                        if f"{j},{i_real}" in sc_link["q_col_match"]:
+                            set_relation("qcCEM")
+                        elif f"{j},{i_real}" in cv_link["cell_match"]:
+                            set_relation("qc" + cv_link["cell_match"][f"{j},{i_real}"])
+                        elif f"{j},{i_real}" in cv_link["num_date_match"]:
+                            set_relation("qc" + cv_link["num_date_match"][f"{j},{i_real}"])
+                        else:
+                            set_relation('qc_default')
+
                 elif j_type[0] == 'column':
                     col1, col2 = i_type[1], j_type[1]
 
@@ -745,14 +834,27 @@ class RelationalTransformerUpdate(torch.nn.Module):
 
                     else:
                         set_relation('cc_default')
-                        if self.cc_foreign_key:
-                            if desc['foreign_keys'].get(str(col1)) == col2:
-                                set_relation('cc_foreign_key_forward')
-                            if desc['foreign_keys'].get(str(col2)) == col1:
-                                set_relation('cc_foreign_key_backward')
-                        if (self.cc_table_match and
-                                desc['column_to_table'][str(col1)] == desc['column_to_table'][str(col2)]):
-                            set_relation('cc_table_match')
+                        if self.bi_way:
+                            if self.cc_foreign_key:
+                                if desc['foreign_keys'].get(str(col1)) == col2:
+                                    set_relation('cc_foreign_key_forward')
+                                if desc['foreign_keys'].get(str(col2)) == col1:
+                                    set_relation('cc_foreign_key_backward')
+                            if (self.cc_table_match and
+                                    desc['column_to_table'][str(col1)] == desc['column_to_table'][str(col2)]):
+                                set_relation('cc_table_match')
+
+                        elif not self.bi_way:
+                            # if not self.bi_way
+                            # Set all direction to forward
+                            if self.cc_foreign_key:
+                                if desc['foreign_keys'].get(str(col1)) == col2:
+                                    set_relation('cc_foreign_key_forward')
+                                if desc['foreign_keys'].get(str(col2)) == col1:
+                                    set_relation('cc_foreign_key_forward')
+                            if (self.cc_table_match and
+                                    desc['column_to_table'][str(col1)] == desc['column_to_table'][str(col2)]):
+                                set_relation('cc_table_match')
 
                 elif j_type[0] == 'table':
                     col, table = i_type[1], j_type[1]
@@ -776,25 +878,64 @@ class RelationalTransformerUpdate(torch.nn.Module):
                 if j_type[0] == 'question':
                     # set_relation('tq_default')
                     i_real = i - t_base
-                    if f"{j},{i_real}" in sc_link["q_tab_match"]:
-                        set_relation("tq" + sc_link["q_tab_match"][f"{j},{i_real}"])
-                    else:
-                        set_relation('tq_default')
+                    if self.bi_match and self.bi_way:
+                        if f"{j},{i_real}" in sc_link["q_tab_match"]:
+                            set_relation("tq" + sc_link["q_tab_match"][f"{j},{i_real}"])
+                        else:
+                            set_relation('tq_default')
+
+                    elif self.bi_match and not self.bi_way:
+                        # if not self.bi_way
+                        # tq > qt
+                        if f"{j},{i_real}" in sc_link["q_tab_match"]:
+                            set_relation("qt" + sc_link["q_tab_match"][f"{j},{i_real}"])
+                        else:
+                            set_relation('qt_default')
+
+                    elif not self.bi_match and self.bi_way:
+                        # if not self.bi_match
+                        # TPM > TEM
+                        if f"{j},{i_real}" in sc_link["q_tab_match"]:
+                            set_relation("tqTEM")
+                        else:
+                            set_relation('tq_default')
+
+                    elif not self.bi_match and not self.bi_way:
+                        if f"{j},{i_real}" in sc_link["q_tab_match"]:
+                            set_relation("qtTEM")
+                        else:
+                            set_relation('qt_default')
+
                 elif j_type[0] == 'column':
                     table, col = i_type[1], j_type[1]
-                    set_relation('tc_default')
+                    if self.bi_way:
+                        set_relation('tc_default')
+                        if self.tc_foreign_key and self.match_foreign_key(desc, col, table):
+                            set_relation('tc_foreign_key')
+                        if self.tc_table_match:
+                            col_table = desc['column_to_table'][str(col)]
+                            if col_table == table:
+                                if col in desc['primary_keys']:
+                                    set_relation('tc_primary_key')
+                                else:
+                                    set_relation('tc_table_match')
+                            elif col_table is None:
+                                set_relation('tc_any_table')
 
-                    if self.tc_foreign_key and self.match_foreign_key(desc, col, table):
-                        set_relation('tc_foreign_key')
-                    if self.tc_table_match:
-                        col_table = desc['column_to_table'][str(col)]
-                        if col_table == table:
-                            if col in desc['primary_keys']:
-                                set_relation('tc_primary_key')
-                            else:
-                                set_relation('tc_table_match')
-                        elif col_table is None:
-                            set_relation('tc_any_table')
+                    elif not self.bi_way:
+                        set_relation('ct_default')
+                        if self.tc_foreign_key and self.match_foreign_key(desc, col, table):
+                            set_relation('ct_foreign_key')
+                        if self.tc_table_match:
+                            col_table = desc['column_to_table'][str(col)]
+                            if col_table == table:
+                                if col in desc['primary_keys']:
+                                    set_relation('ct_primary_key')
+                                else:
+                                    set_relation('ct_table_match')
+                            elif col_table is None:
+                                set_relation('ct_any_table')
+
                 elif j_type[0] == 'table':
                     table1, table2 = i_type[1], j_type[1]
                     if self.dist_relation and table1 == table2:
@@ -804,13 +945,25 @@ class RelationalTransformerUpdate(torch.nn.Module):
                         if self.tt_foreign_key:
                             forward = table2 in desc['foreign_keys_tables'].get(str(table1), ())
                             backward = table1 in desc['foreign_keys_tables'].get(str(table2), ())
-                            if forward and backward:
-                                set_relation('tt_foreign_key_both')
-                            elif forward:
-                                set_relation('tt_foreign_key_forward')
-                            elif backward:
-                                set_relation('tt_foreign_key_backward')
 
+                            if self.bi_way:
+                                if forward and backward:
+                                    set_relation('tt_foreign_key_both')
+                                elif forward:
+                                    set_relation('tt_foreign_key_forward')
+                                elif backward:
+                                    set_relation('tt_foreign_key_backward')
+
+                            elif not self.bi_way:
+                                # if not self.bi_way
+                                # set all relation to "forward"
+                                if forward and backward:
+                                    set_relation('tt_foreign_key_forward')
+                                elif forward:
+                                    set_relation('tt_foreign_key_forward')
+                                elif backward:
+                                    set_relation('tt_foreign_key_forward')
+                                    
                 elif j_type[0] == 'value':
                     set_relation('tv_default')
 

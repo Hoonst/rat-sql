@@ -27,11 +27,14 @@ def load_checkpoint(item_dict, model_dir, map_location=None, step=None):
     path = os.path.join(model_dir, 'model_checkpoint')
     if step is not None:
         path += f'-{step:08d}'
+
     if os.path.exists(path):
         print("Loading model from %s" % path)
         checkpoint = torch.load(path, map_location=map_location)
 
         old_state_dict = item_dict["model"].state_dict()
+
+        # import IPython; IPython.embed(); exit(1);
         for key in old_state_dict.keys():
             if key not in checkpoint['model']:
                 checkpoint['model'][key] = old_state_dict[key]
@@ -39,6 +42,7 @@ def load_checkpoint(item_dict, model_dir, map_location=None, step=None):
         for item_name in item_dict:
             item_dict[item_name].load_state_dict(checkpoint[item_name])
         return checkpoint.get('step', 0)
+
     return 0
 
 
@@ -118,6 +122,9 @@ class Saver(object):
            Last training step for the model restored.
         """
         items2restore = {k: self._items[k] for k in item_keys}
+        # step = sorted(os.listdir(model_dir))[-1]
+        # step = int(step.split('-')[-1])
+
         last_step = load_checkpoint(
             items2restore, model_dir, map_location, step)
         return last_step

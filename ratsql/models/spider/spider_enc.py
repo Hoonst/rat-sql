@@ -845,6 +845,8 @@ class SpiderEncoderBert(torch.nn.Module):
                 # ['[CLS]', state, '[SEP]']
                 # ['[CLS]']의 의미 Github Issue
 
+                # [CLS] 대신 [SEP]로서 표현하는게 좋지 않을까?
+
             else:
                 vals = []
             token_list = qs + [c for col in cols for c in col] + \
@@ -904,7 +906,6 @@ class SpiderEncoderBert(torch.nn.Module):
             
 
             # 질문: Batch_token_lists 가 왜 Max Len가 512가 아니라, 해당 배치의 Max Len
-        import IPython; IPython.embed(); exit(1);
         padded_token_lists, att_mask_lists, tok_type_lists = self.pad_sequence_for_bert_batch(batch_token_lists)
         tokens_tensor = torch.LongTensor(padded_token_lists).to(self._device)
         att_masks_tensor = torch.LongTensor(att_mask_lists).to(self._device)

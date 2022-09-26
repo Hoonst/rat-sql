@@ -282,7 +282,7 @@ def get_keywords(sql):
     # like keyword
     if len([cond_unit for cond_unit in cond_units if cond_unit[1] == WHERE_OPS.index('like')]) > 0:
         res.add('like')
-
+    
     return res
 
 
@@ -721,7 +721,7 @@ def rebuild_col_unit_col(valid_col_units, col_unit, kmap):
     agg_id, col_id, distinct = col_unit
     if col_id in kmap and col_id in valid_col_units:
         col_id = kmap[col_id]
-    if DISABLE_DISTINCT:
+    if DISABLE_DISTINCT:  
         distinct = None
     return agg_id, col_id, distinct
 
