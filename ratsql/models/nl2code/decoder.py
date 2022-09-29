@@ -86,7 +86,9 @@ class NL2CodeDecoderPreproc(abstract_preproc.AbstractPreproc):
             min_freq=3,
             max_count=5000,
             use_seq_elem_rules=False):
+        # @registry.register('grammar', 'spider')
         self.grammar = registry.construct('grammar', grammar)
+
         self.ast_wrapper = self.grammar.ast_wrapper
 
         self.vocab_path = os.path.join(save_path, 'dec_vocab.json')
@@ -402,9 +404,13 @@ class NL2CodeDecoder(torch.nn.Module):
             torch.nn.Linear(self.recurrent_size, self.rule_emb_size),
             torch.nn.Tanh(),
             torch.nn.Linear(self.rule_emb_size, len(self.rules_index)))
+
+        # len(self.rules_index) = 97
         self.rule_embedding = torch.nn.Embedding(
             num_embeddings=len(self.rules_index),
             embedding_dim=self.rule_emb_size)
+
+        
 
         self.gen_logodds = torch.nn.Linear(self.recurrent_size, 1)
         self.terminal_logits = torch.nn.Sequential(
@@ -506,13 +512,45 @@ class NL2CodeDecoder(torch.nn.Module):
         return all_rules, rules_mask
 
     def compute_loss(self, enc_input, example, desc_enc, debug):
+        '''
+        * enc_input: desc
+        * example:
+            {'_type': 'sql',
+                'select': {'_type': 'select',
+                'is_distinct': False,
+                'aggs': [{'_type': 'agg',
+                    'agg_id': {'_type': 'Count'},
+                    'val_unit': {'_type': 'Column',
+                    'col_unit1': {'_type': 'col_unit',
+                    'agg_id': {'_type': 'NoneAggOp'},
+                    'is_distinct': False,
+                    'col_id': 0}}}]},
+                'from': {'_type': 'from', 'table_units': [{'_type': 'Table', 'table_id': 1}]},
+                'sql_where': {'_type': 'sql_where',
+                'where': {'_type': 'Gt',
+                'val_unit': {'_type': 'Column',
+                    'col_unit1': {'_type': 'col_unit',
+                    'agg_id': {'_type': 'NoneAggOp'},
+                    'is_distinct': False,
+                    'col_id': 10}},
+                'val1': {'_type': 'Terminal'}}},
+                'sql_groupby': {'_type': 'sql_groupby'},
+                'sql_orderby': {'_type': 'sql_orderby', 'limit': False},
+                'sql_ieu': {'_type': 'sql_ieu'}}
+
+        * desc_enc:
+        * debug: False
         
+        '''
         if not (self.enumerate_order and self.training):
-            
+            # Evaluation
             mle_loss = self.compute_mle_loss(enc_input, example, desc_enc, debug)
             
         else:
+            # Training
+            # compute_loss_from_all_ordering all falls down to 'compute_mle_loss'
             mle_loss = self.compute_loss_from_all_ordering(enc_input, example, desc_enc, debug)
+
         if self.use_align_loss:
             align_loss = self.compute_align_loss(desc_enc, example)
             return mle_loss + align_loss
@@ -574,12 +612,20 @@ class NL2CodeDecoder(torch.nn.Module):
                 parent_field_type=self.preproc.grammar.root_type,
             )
         ]
+
+        iteration = 0
+        # print(f'initial node: {queue[0]}')
         while queue:
+            # print('======'*15)
+            # print(f'iteration = {iteration}')
+            iteration += 1
+            # shape of code seems like dfs
             item = queue.pop()
             node = item.node
             parent_field_type = item.parent_field_type
 
             if isinstance(node, (list, tuple)):
+                # print('isinstance(node, (list, tuple))')
                 node_type = parent_field_type + '*'
                 rule = (node_type, len(node))
                 rule_idx = self.rules_index[rule]
@@ -596,8 +642,11 @@ class NL2CodeDecoder(torch.nn.Module):
                             parent_field_type=parent_field_type,
                         ))
                 continue
-
+            
+            # parent_field_type == 
+            
             if parent_field_type in self.preproc.grammar.pointers:
+                # print('parent_field_type in self.preproc.grammar.pointers')
                 assert isinstance(node, int)
                 assert traversal.cur_item.state == TreeTraversal.State.POINTER_APPLY
                 pointer_map = desc_enc.pointer_maps.get(parent_field_type)
@@ -620,8 +669,10 @@ class NL2CodeDecoder(torch.nn.Module):
                 else:
                     traversal.step(node)
                 continue
-
+            
+            # parent_field_type == 
             if parent_field_type in self.ast_wrapper.primitive_types:
+                # print('parent_field_type in self.ast_wrapper.primitive_types')
                 # identifier, int, string, bytes, object, singleton
                 # - could be bytes, str, int, float, bool, NoneType
                 # - terminal tokens vocabulary is created by turning everything into a string (with `str`)
@@ -636,8 +687,10 @@ class NL2CodeDecoder(torch.nn.Module):
                 continue
 
             type_info = self.ast_wrapper.singular_types[node['_type']]
-
+            # print(f'type_info: {type_info}')
+            # parent_field_type == 
             if parent_field_type in self.preproc.sum_type_constructors:
+                # print(f'parent_field_type in self.preproc.sum_type_constructors')
                 # ApplyRule, like expr -> Call
                 rule = (parent_field_type, type_info.name)
                 rule_idx = self.rules_index[rule]
@@ -648,8 +701,13 @@ class NL2CodeDecoder(torch.nn.Module):
                 traversal.step(rule_idx, extra_rules)
 
             if type_info.fields:
+                # print(f'type_info.fields')
                 # ApplyRule, like Call -> expr[func] expr*[args] keyword*[keywords]
                 # Figure out which rule needs to be applied
+                '''
+                ASTWrapper: 
+                '''
+
                 present = get_field_presence_info(self.ast_wrapper, node, type_info.fields)
                 rule = (node['_type'], tuple(present))
                 rule_idx = self.rules_index[rule]
@@ -667,6 +725,9 @@ class NL2CodeDecoder(torch.nn.Module):
                         parent_field_type=field_info.type,
                     ))
 
+            # print(queue)
+
+        # import IPython; IPython.embed(); exit(1);
 
         loss = torch.sum(torch.stack(tuple(traversal.loss), dim=0), dim=0)
         if debug:

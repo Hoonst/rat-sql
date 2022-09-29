@@ -22,7 +22,7 @@
         use_orthogonal: false,
         use_orth_init: false,
         bi_match: true,
-        bi_way: true,
+        bi_way: false,
         use_align_mat: true,
         use_align_loss: true,
         bert_token_type: true,
@@ -35,7 +35,7 @@
     eval_output: "__LOGDIR__/ie_dirs",
     eval_beam_size: 1,
     eval_use_heuristic: true,
-    # eval_steps: [5000 * x + 500 for x in std.range(9,13)],
-    eval_steps: [60500],
+    # eval_steps: [5000 * x + 500 for x in std.range(11)],
+    eval_steps: [55500],
     eval_section: "val",
 }

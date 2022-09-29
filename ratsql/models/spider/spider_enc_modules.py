@@ -828,6 +828,11 @@ class RelationalTransformerUpdate(torch.nn.Module):
                     Relation 중에서 distance -2,-1,1,2로 판명되는 경우는 없음
                     
                     아무리 생각해도...이유가 있을것이다...
+
+                    확실히 없음!
+                    즉, Identity Relation으로서 존재
+
+                    Identity이면 cc_default로서 표현하지 않고 ('cc_dist',0)으로 표현
                     '''
                     if self.dist_relation and col1 == col2:
                         set_relation(('cc_dist', clamp(j - i, self.cc_max_dist)))
@@ -869,6 +874,7 @@ class RelationalTransformerUpdate(torch.nn.Module):
                             else:
                                 set_relation('ct_table_match')
                         elif col_table is None:
+                            # No table match on
                             set_relation('ct_any_table')
 
                 elif j_type[0] == 'value':
@@ -987,7 +993,15 @@ class RelationalTransformerUpdate(torch.nn.Module):
                         set_relation(('vv_dist', clamp(j - i, self.vv_max_dist)))
                     else:
                         set_relation('vv_default')
- 
+
+        # new = []
+        # for case in relations:
+        #     for c in case:
+        #         result = [i for i in self.relation_ids if self.relation_ids[i]==c][0]
+        #         new.append(result)
+                
+        # print(new)
+        # import IPython; IPython.embed(); exit(1);
         return relations
 
     @classmethod

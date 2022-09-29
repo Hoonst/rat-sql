@@ -165,6 +165,7 @@ class Trainer:
 
             # .dataset > 단순 load
             train_data = self.model_preproc.dataset('train')
+            # 8501개
             # train_data_loader는 batch size가 기존에 알고 있는 수치로 나타나지만
             # train_eval_data_loader는 batch size가 50으로 나타나있다.
             train_data_loader = self._yield_batches_from_epochs(
@@ -178,7 +179,7 @@ class Trainer:
             train_data,
             batch_size=self.train_config.eval_batch_size,
             collate_fn=lambda x: x)
-
+        
         val_data = self.model_preproc.dataset('val')
         val_data_loader = torch.utils.data.DataLoader(
             val_data,
@@ -188,6 +189,7 @@ class Trainer:
         # 4. Start training loop
         with self.data_random:
             for batch in train_data_loader:
+                # import IPython; IPython.embed(); exit(1);
                 # Quit if too long
                 if last_step >= self.train_config.max_steps:
                     break
@@ -328,7 +330,7 @@ class Trainer:
                 # Run saver
                 if last_step == 1 or last_step % self.train_config.save_every_n == 0:
                     saver.save(modeldir, last_step)
-
+            # saved_relation = 
             # Save final model
             saver.save(modeldir, last_step)
 
