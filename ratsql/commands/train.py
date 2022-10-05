@@ -78,11 +78,12 @@ class Logger:
 
 class Trainer:
     def __init__(self, logger, config):
+        
         if torch.cuda.is_available():
             self.device = torch.device('cuda:0')
         else:
             self.device = torch.device('cpu')
-
+        print(f'current device: {self.device}')
         self.logger = logger
         self.train_config = registry.instantiate(TrainConfig, config['train'])
         self.data_random = random_state.RandomContext(self.train_config.data_seed)
@@ -144,7 +145,6 @@ class Trainer:
         saver = saver_mod.Saver(
             {"model": self.model, "optimizer": optimizer}, keep_every_n=self.train_config.keep_every_n)
         last_step = saver.restore(modeldir, map_location=self.device)
-        # import IPython; IPython.embed(); exit(1);
         
         #lr fix to not break scheduler when loading from checkpoint
         lr_scheduler.param_groups = optimizer.param_groups
@@ -189,7 +189,6 @@ class Trainer:
         # 4. Start training loop
         with self.data_random:
             for batch in train_data_loader:
-                # import IPython; IPython.embed(); exit(1);
                 # Quit if too long
                 if last_step >= self.train_config.max_steps:
                     break

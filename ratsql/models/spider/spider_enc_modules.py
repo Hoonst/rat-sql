@@ -310,6 +310,7 @@ class RelationalTransformerUpdate(torch.nn.Module):
                  sc_link=False,
                  cv_link=False,
                  qv_link=False,
+                 dp_link=False,
                  dist_relation=True,
                  orth_init=False,
                  bi_match=True,
@@ -340,6 +341,7 @@ class RelationalTransformerUpdate(torch.nn.Module):
         self.orth_init = orth_init
         self.bi_match = bi_match
         self.bi_way = bi_way
+        self.dp_link = dp_link
 
         self.relation_ids = {}
         
@@ -357,6 +359,10 @@ class RelationalTransformerUpdate(torch.nn.Module):
             # qq_default doesn't exist in original status
             # added to replace qq_dist when qq_dist is not being used
             add_relation('qq_default')
+
+        if self.dp_link:
+            add_relation('qq_forward')
+            add_relation('qq_backward')
 
         if self.bi_way:
             add_relation('qc_default')
@@ -486,6 +492,8 @@ class RelationalTransformerUpdate(torch.nn.Module):
                 # vv_dist는 (-2,-1,0,1,2)
             else:
                 add_relation('vv_default')
+
+        
 
         print(f'Used Relations: {len(self.relation_ids)}')
 
@@ -686,6 +694,7 @@ class RelationalTransformerUpdate(torch.nn.Module):
         sc_link = desc.get('sc_link', {'q_col_match': {}, 'q_tab_match': {}})
         cv_link = desc.get('cv_link', {'num_date_match': {}, 'cell_match': {}})
         qv_link = desc.get('cv_link', {'value_match': {}, 'value_word': {}})
+        dp_link = desc.get('dp_link', {'dp_link': {}})
 
         # Catalogue which things are where
         loc_types = {}
@@ -734,6 +743,16 @@ class RelationalTransformerUpdate(torch.nn.Module):
                 if j_type[0] == 'question':
                     if self.dist_relation:
                         set_relation(('qq_dist', clamp(j - i, self.qq_max_dist)))
+
+                    elif self.dp_link:
+                        if f"{i},{j}" in dp_link["dp_link"]:
+                            if dp_link['dp_link'][f"{i},{j}"] == 'F':
+                                set_relation('qq_forward')
+                            else:
+                                set_relation('qq_backward')
+                        else:
+                            set_relation('qq_default')
+
                     else:
                         set_relation('qq_default')
 
@@ -994,14 +1013,6 @@ class RelationalTransformerUpdate(torch.nn.Module):
                     else:
                         set_relation('vv_default')
 
-        # new = []
-        # for case in relations:
-        #     for c in case:
-        #         result = [i for i in self.relation_ids if self.relation_ids[i]==c][0]
-        #         new.append(result)
-                
-        # print(new)
-        # import IPython; IPython.embed(); exit(1);
         return relations
 
     @classmethod

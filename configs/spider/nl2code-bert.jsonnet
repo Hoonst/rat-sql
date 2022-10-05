@@ -18,14 +18,16 @@ function(args) _base(output_from=_output_from, data_path=args.data_path) + {
     local orth_init = args.use_orth_init,
     local bi_way = args.bi_way,
     local bi_match = args.bi_match,
+    local dp_link = args.dp_link,
     
-    model_name: 'bs=%(bs)d,qv_link=%(qv_link)s,dist=%(dist_relation)s,orthog=%(orthog)s,orth_init=%(orth_init)s,bi_way=%(bi_way)s,bi_match=%(bi_match)s' % (args + {
+    model_name: 'bs=%(bs)d,qv_link=%(qv_link)s,dist=%(dist_relation)s,orthog=%(orthog)s,orth_init=%(orth_init)s,bi_way=%(bi_way)s,bi_match=%(bi_match)s,dp_link=%(dp_link)s' % (args + {
         qv_link: qv_link,
         dist_relation: dist_relation,
         orthog: orthog,
         orth_init: orth_init,
         bi_way: bi_way,
         bi_match: bi_match,
+        dp_link: dp_link
     }),
     
     model+: {
@@ -43,6 +45,7 @@ function(args) _base(output_from=_output_from, data_path=args.data_path) + {
                 sc_link: args.sc_link,
                 cv_link: args.cv_link,
                 qv_link: args.qv_link,
+                dp_link: args.dp_link,
                 dist_relation: args.dist_relation,
                 orth_init: args.use_orth_init,
                 bi_match: args.bi_match,
@@ -55,6 +58,7 @@ function(args) _base(output_from=_output_from, data_path=args.data_path) + {
             bert_version: args.bert_version,
             bert_token_type: args.bert_token_type,
             qv_link: args.qv_link,
+            dp_link: args.dp_link,
             top_k_learnable:: null,
             word_emb_size:: null,
         },
@@ -65,10 +69,11 @@ function(args) _base(output_from=_output_from, data_path=args.data_path) + {
             db_path: data_path + "database",
             compute_sc_link: args.sc_link,
             compute_cv_link: args.cv_link,
+            compute_dp_link: args.dp_link,
             fix_issue_16_primary_keys: true,
             bert_version: args.bert_version,
             count_tokens_in_word_emb_for_vocab:: null,
-            save_path: data_path + 'nl2code,output_from=%s,fs=%d,emb=bert,cvlink' % [_output_from, _fs],
+            save_path: data_path + 'nl2code,output_from=%s,fs=%d,emb=bert,cvlink,dp_link=%s' % [_output_from, _fs, args.dp_link],
         },
         decoder_preproc+: {
             grammar+: {
@@ -77,10 +82,11 @@ function(args) _base(output_from=_output_from, data_path=args.data_path) + {
                 infer_from_conditions: true,
                 factorize_sketch: _fs,
             },
-            save_path: data_path + 'nl2code,output_from=%s,fs=%d,emb=bert,cvlink' % [_output_from, _fs],
+            save_path: data_path + 'nl2code,output_from=%s,fs=%d,emb=bert,cvlink,dp_link=%s' % [_output_from, _fs, args.dp_link],
 
             compute_sc_link:: null,
             compute_cv_link:: null,
+            compute_dp_link:: null,
             db_path:: null,
             fix_issue_16_primary_keys:: null,
             bert_version:: null,

@@ -1,11 +1,18 @@
 import re
 import string
 
+import stanza
+import spacy
+
 import nltk.corpus
+import itertools
+
 
 STOPWORDS = set(nltk.corpus.stopwords.words('english'))
 PUNKS = set(a for a in string.punctuation)
 
+nlp_stanza = stanza.Pipeline(lang='en', processors='tokenize,mwt,pos,lemma,depparse', use_gpu=True)
+nlp_spacy = spacy.load("en_core_web_sm")
 
 # schema linking, similar to IRNet
 def compute_schema_linking(question, column, table):
@@ -132,3 +139,55 @@ def compute_cell_value_linking(tokens, schema):
 
     cv_link = {"num_date_match": num_date_match, "cell_match": cell_match, "value_match": qv_match, "value_word": qv_match_word}
     return cv_link
+
+def compute_dependency_linking(tokens, type='stanza'):
+    dp_linkage = {}
+    tokens_joined = ' '.join(tokens)
+
+    if type == 'stanza':
+        doc_stanza = nlp_stanza(tokens_joined)
+        words_stanza = doc_stanza.sentences[0].words
+        for i in range(len(words_stanza)):
+            words_stanza[i].id -= 1 
+            words_stanza[i].head -= 1
+
+        for i, j in itertools.product(range(len(words_stanza)), repeat=2):
+            if i == j:
+                continue
+            
+            # if head's index is 0 > ROOT Node
+            # ROOT Node는 
+            elif words_stanza[i].head == -1:
+                continue
+
+            elif words_stanza[i].head == j:
+                dp_linkage[f"{j},{i}"] = 'F'
+                dp_linkage[f"{i},{j}"] = 'B'
+
+        dp_link = {"dp_link": dp_linkage}
+        
+    elif type == 'spacy':
+        doc_spacy = nlp_spacy(tokens_joined)
+        words_spacy = []
+
+        for idx, token in enumerate(doc_spacy):
+            words_spacy.append({"id": idx,
+                                "text": token.text,
+                                "dep": token.dep_,
+                                "head": token.head.i})
+
+        for i, j in itertools.product(range(len(words_spacy)), repeat=2):
+            if i == j:
+                continue
+            
+            # if head's index is 0 > ROOT Node
+            elif words_spacy[i]['head'] == words_spacy[i]['id']:
+                continue
+
+            elif words_spacy[i]['head'] == j:
+                dp_linkage[f"{j},{i}"] = 'F'
+                dp_linkage[f"{i},{j}"] = 'B'
+
+        dp_link = {"dp_link": dp_linkage}
+
+    return dp_link

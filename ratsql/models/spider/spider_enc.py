@@ -11,6 +11,7 @@ from transformers import BertModel, BertTokenizer
 from ratsql.models import abstract_preproc
 from ratsql.models.spider import spider_enc_modules
 from ratsql.models.spider.spider_match_utils import (
+    compute_dependency_linking,
     compute_schema_linking,
     compute_cell_value_linking
 )
@@ -202,6 +203,7 @@ class SpiderEncoderV2Preproc(abstract_preproc.AbstractPreproc):
             sc_link = {"q_col_match": {}, "q_tab_match": {}}
 
         if self.compute_cv_link:
+            
             cv_link = compute_cell_value_linking(question, item.schema)
         else:
             cv_link = {"num_date_match": {}, "cell_match": {}}
@@ -634,8 +636,10 @@ class Bertokens:
 
     def bert_cv_linking(self, schema):
         question_tokens = self.recovered_pieces  # Not using normalized tokens here because values usually match exactly
+
         cv_link = compute_cell_value_linking(question_tokens, schema)
 
+        
         new_cv_link = {}
         for m_type in cv_link:
             _match = {}
@@ -652,6 +656,12 @@ class Bertokens:
             new_cv_link[m_type] = _match
         return new_cv_link
 
+    def bert_dp_linking(self, dp_link_type='stanza'):
+        question_tokens = self.normalized_pieces
+
+        dp_link = compute_dependency_linking(question_tokens, dp_link_type)
+
+        return dp_link
 
 class SpiderEncoderBertPreproc(SpiderEncoderV2Preproc):
 
@@ -664,8 +674,8 @@ class SpiderEncoderBertPreproc(SpiderEncoderV2Preproc):
             bert_version="bert-base-uncased",
             compute_sc_link=True,
             compute_cv_link=False,
+            compute_dp_link=False,
             ):
-
         self.data_dir = os.path.join(save_path, 'enc')
         self.db_path = db_path
         self.texts = collections.defaultdict(list)
@@ -673,6 +683,7 @@ class SpiderEncoderBertPreproc(SpiderEncoderV2Preproc):
         self.include_table_name_in_column = include_table_name_in_column
         self.compute_sc_link = compute_sc_link
         self.compute_cv_link = compute_cv_link
+        self.compute_dp_link = compute_dp_link
 
         self.counted_db_ids = set()
         self.preprocessed_schemas = {}
@@ -707,9 +718,15 @@ class SpiderEncoderBertPreproc(SpiderEncoderV2Preproc):
 
         if self.compute_cv_link:
             cv_link = question_bert_tokens.bert_cv_linking(item.schema)
-            # qv_link = question_bert_tokens.bert_qv_linking(item.s)
+
         else:
             cv_link = {"num_date_match": {}, "cell_match": {}, "value_match": {}, "value_word": []}
+        
+        if self.compute_dp_link:
+            dp_link = question_bert_tokens.bert_dp_linking(self.compute_dp_link)
+
+        else:
+            dp_link = {'dp_link': {}}
 
         '''
         preprocess 단계에서는 아직 question과 schema 요소를 합치지 않고, 개별적으로 간주
@@ -723,6 +740,7 @@ class SpiderEncoderBertPreproc(SpiderEncoderV2Preproc):
             'db_id': item.schema.db_id,
             'sc_link': sc_link,
             'cv_link': cv_link,
+            'dp_link': dp_link,
             'columns': preproc_schema.column_names,
             'tables': preproc_schema.table_names,
             'table_bounds': preproc_schema.table_bounds,
@@ -787,7 +805,7 @@ class SpiderEncoderBert(torch.nn.Module):
         self._device = device
         self.preproc = preproc
         self.bert_token_type = bert_token_type
-        self.base_enc_hidden_size = 1024 if bert_version == "bert-large-uncased-whole-word-masking" else 768
+        self.base_enc_hidden_size = 1024 if bert_version == "bert-large-uncased-whole-word-masking" or bert_version == 'electra-large-discriminator' else 768
 
         assert summarize_header in ["first", "avg"]
         self.summarize_header = summarize_header
@@ -968,8 +986,6 @@ class SpiderEncoderBert(torch.nn.Module):
 
                     col_enc = (col_enc + col_enc_2) / 2.0  # avg of first and last token
                     tab_enc = (tab_enc + tab_enc_2) / 2.0  # avg of first and last token
-
-                # import IPython; IPython.embed(); exit(1);
 
             assert q_enc.size()[0] == len(desc["question"])
             assert col_enc.size()[0] == c_boundary[-1]

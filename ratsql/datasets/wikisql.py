@@ -4,10 +4,13 @@ import networkx as nx
 import numpy as np
 import torch
 
+
 from ratsql.datasets import spider
 from ratsql.utils import registry
 from third_party.wikisql.lib import dbengine
 from third_party.wikisql.lib import query
+
+
 
 
 def load_tables(paths):
