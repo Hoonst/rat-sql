@@ -34,7 +34,6 @@ def load_checkpoint(item_dict, model_dir, map_location=None, step=None):
 
         old_state_dict = item_dict["model"].state_dict()
 
-        # import IPython; IPython.embed(); exit(1);
         for key in old_state_dict.keys():
             if key not in checkpoint['model']:
                 checkpoint['model'][key] = old_state_dict[key]
@@ -124,7 +123,7 @@ class Saver(object):
         items2restore = {k: self._items[k] for k in item_keys}
         # step = sorted(os.listdir(model_dir))[-1]
         # step = int(step.split('-')[-1])
-
+        # import IPython; IPython.embed(); exit(1);
         last_step = load_checkpoint(
             items2restore, model_dir, map_location, step)
         return last_step

@@ -6,11 +6,12 @@ function(args) _base(output_from=_output_from, data_path=args.data_path) + {
     local data_path = args.data_path,
     
     local lr_s = '%0.1e' % args.lr,
-    local bert_lr_s = '%0.1e' % args.bert_lr,
+    local plm_lr_s = '%0.1e' % args.plm_lr,
     local end_lr_s = if args.end_lr == 0 then '0e0' else '%0.1e' % args.end_lr,
 
-    local base_bert_enc_size = if args.bert_version == "bert-large-uncased-whole-word-masking" then 1024 else 768,
-    local enc_size =  base_bert_enc_size,
+    # local base_plm_enc_size = if args.plm_version == "bert-large-uncased-whole-word-masking" or args.plm_version == "google/electra-large-discriminator" then 1024 else 768,
+    local base_plm_enc_size = 1024,
+    local enc_size =  base_plm_enc_size,
     local loss_s = args.loss,
     local qv_link = args.qv_link,
     local dist_relation = args.dist_relation,
@@ -19,15 +20,17 @@ function(args) _base(output_from=_output_from, data_path=args.data_path) + {
     local bi_way = args.bi_way,
     local bi_match = args.bi_match,
     local dp_link = args.dp_link,
+    local plm = if args.plm_version == "bert-large-uncased-whole-word-masking" then 'bert' else if args.plm_version =="google/electra-large-discriminator" then "electra" else if args.plm_version =="microsoft/deberta-v3-large" then "debertav3" else if args.plm_version=="microsoft/deberta-large" then "debertav1",
     
-    model_name: 'bs=%(bs)d,qv_link=%(qv_link)s,dist=%(dist_relation)s,orthog=%(orthog)s,orth_init=%(orth_init)s,bi_way=%(bi_way)s,bi_match=%(bi_match)s,dp_link=%(dp_link)s' % (args + {
+    model_name: 'bs=%(bs)d,qv_link=%(qv_link)s,dist=%(dist_relation)s,orthog=%(orthog)s,orth_init=%(orth_init)s,bi_way=%(bi_way)s,bi_match=%(bi_match)s,dp_link=%(dp_link)s,plm=%(plm)s' % (args + {
         qv_link: qv_link,
         dist_relation: dist_relation,
         orthog: orthog,
         orth_init: orth_init,
         bi_way: bi_way,
         bi_match: bi_match,
-        dp_link: dp_link
+        dp_link: dp_link,
+        plm: plm,
     }),
     
     model+: {
@@ -55,8 +58,8 @@ function(args) _base(output_from=_output_from, data_path=args.data_path) + {
             use_orthogonal: args.use_orthogonal,
             summarize_header: args.summarize_header,
             use_column_type: args.use_column_type,
-            bert_version: args.bert_version,
-            bert_token_type: args.bert_token_type,
+            plm_version: args.plm_version,
+            plm_token_type: args.plm_token_type,
             qv_link: args.qv_link,
             dp_link: args.dp_link,
             top_k_learnable:: null,
@@ -71,7 +74,7 @@ function(args) _base(output_from=_output_from, data_path=args.data_path) + {
             compute_cv_link: args.cv_link,
             compute_dp_link: args.dp_link,
             fix_issue_16_primary_keys: true,
-            bert_version: args.bert_version,
+            plm_version: args.plm_version,
             count_tokens_in_word_emb_for_vocab:: null,
             save_path: data_path + 'nl2code,output_from=%s,fs=%d,emb=bert,cvlink,dp_link=%s' % [_output_from, _fs, args.dp_link],
         },
@@ -89,8 +92,9 @@ function(args) _base(output_from=_output_from, data_path=args.data_path) + {
             compute_dp_link:: null,
             db_path:: null,
             fix_issue_16_primary_keys:: null,
-            bert_version:: null,
+            plm_version:: null,
         },
+
         decoder+: {
             name: 'NL2Code',
             dropout: 0.20687225956012834,
@@ -123,7 +127,7 @@ function(args) _base(output_from=_output_from, data_path=args.data_path) + {
 
     lr_scheduler+: {
         name: 'bert_warmup_polynomial_group',
-        start_lrs: [args.lr, args.bert_lr],
+        start_lrs: [args.lr, args.plm_lr],
         end_lr: args.end_lr,
         num_warmup_steps: $.train.max_steps / 8,
     },

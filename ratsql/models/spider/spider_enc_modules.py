@@ -493,8 +493,6 @@ class RelationalTransformerUpdate(torch.nn.Module):
             else:
                 add_relation('vv_default')
 
-        
-
         print(f'Used Relations: {len(self.relation_ids)}')
 
         # What is the usage of this 'merge_types'?
@@ -742,6 +740,7 @@ class RelationalTransformerUpdate(torch.nn.Module):
             if i_type[0] == 'question':
                 if j_type[0] == 'question':
                     if self.dist_relation:
+                        # default setting when dp_link
                         set_relation(('qq_dist', clamp(j - i, self.qq_max_dist)))
 
                     elif self.dp_link:

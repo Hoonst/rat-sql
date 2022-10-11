@@ -121,11 +121,11 @@ class Trainer:
 
             # TODO: not nice
             if config["optimizer"].get("name", None) == 'bertAdamw':
-                bert_params = list(self.model.encoder.bert_model.parameters())
+                bert_params = list(self.model.encoder.plm_model.parameters())
                 assert len(bert_params) > 0
                 non_bert_params = []
                 for name, _param in self.model.named_parameters():
-                    if "bert" not in name:
+                    if "plm_model" not in name:
                         non_bert_params.append(_param)
                 assert len(non_bert_params) + len(bert_params) == len(list(self.model.parameters()))
 

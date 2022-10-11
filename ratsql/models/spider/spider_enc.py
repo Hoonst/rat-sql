@@ -6,7 +6,7 @@ import os
 import attr
 import numpy as np
 import torch
-from transformers import BertModel, BertTokenizer
+from transformers import BertModel, BertTokenizer, AutoModel, AutoTokenizer
 
 from ratsql.models import abstract_preproc
 from ratsql.models.spider import spider_enc_modules
@@ -671,11 +671,12 @@ class SpiderEncoderBertPreproc(SpiderEncoderV2Preproc):
             db_path,
             fix_issue_16_primary_keys=False,
             include_table_name_in_column=False,
-            bert_version="bert-base-uncased",
+            plm_version="bert-base-uncased",
             compute_sc_link=True,
             compute_cv_link=False,
             compute_dp_link=False,
             ):
+
         self.data_dir = os.path.join(save_path, 'enc')
         self.db_path = db_path
         self.texts = collections.defaultdict(list)
@@ -687,8 +688,8 @@ class SpiderEncoderBertPreproc(SpiderEncoderV2Preproc):
 
         self.counted_db_ids = set()
         self.preprocessed_schemas = {}
-        self.bert_version = bert_version
-        self.tokenizer = BertTokenizer.from_pretrained(bert_version)
+        self.plm_version = plm_version
+        self.tokenizer = AutoTokenizer.from_pretrained(plm_version)
 
         # TODO: should get types from the data
         column_types = ["text", "number", "time", "boolean", "others"]
@@ -782,7 +783,7 @@ class SpiderEncoderBertPreproc(SpiderEncoderV2Preproc):
                     f.write(json.dumps(text) + '\n')
 
     def load(self):
-        self.tokenizer = BertTokenizer.from_pretrained(self.data_dir)
+        self.tokenizer = AutoTokenizer.from_pretrained(self.data_dir)
 
 
 @registry.register('encoder', 'spider-bert')
@@ -795,8 +796,8 @@ class SpiderEncoderBert(torch.nn.Module):
             device,
             preproc,
             update_config={},
-            bert_token_type=False,
-            bert_version="bert-base-uncased",
+            plm_token_type=False,
+            plm_version="bert-base-uncased",
             summarize_header="first",
             use_column_type=True,
             include_in_memory=('question', 'column', 'table', 'value'),
@@ -804,8 +805,17 @@ class SpiderEncoderBert(torch.nn.Module):
         super().__init__()
         self._device = device
         self.preproc = preproc
-        self.bert_token_type = bert_token_type
-        self.base_enc_hidden_size = 1024 if bert_version == "bert-large-uncased-whole-word-masking" or bert_version == 'electra-large-discriminator' else 768
+        self.plm_token_type = plm_token_type
+        if plm_version == "bert-large-uncased-whole-word-masking":
+            self.base_enc_hidden_size = 1024
+        elif plm_version == "google/electra-large-discriminator":
+            self.base_enc_hidden_size = 1024
+        elif "deberta" in plm_version and 'v3':
+            self.base_enc_hidden_size = 1024
+        else:
+            self.base_enc_hidden_size = 768
+
+        print(f'plm_version: {plm_version}')
 
         assert summarize_header in ["first", "avg"]
         self.summarize_header = summarize_header
@@ -830,9 +840,9 @@ class SpiderEncoderBert(torch.nn.Module):
             sc_link=True,
         )
 
-        self.bert_model = BertModel.from_pretrained(bert_version)
+        self.plm_model = AutoModel.from_pretrained(plm_version)
         self.tokenizer = self.preproc.tokenizer
-        self.bert_model.resize_token_embeddings(len(self.tokenizer))  # several tokens added
+        self.plm_model.resize_token_embeddings(len(self.tokenizer))  # several tokens added
 
     def forward(self, descs):
         batch_token_lists = []
@@ -928,12 +938,12 @@ class SpiderEncoderBert(torch.nn.Module):
         tokens_tensor = torch.LongTensor(padded_token_lists).to(self._device)
         att_masks_tensor = torch.LongTensor(att_mask_lists).to(self._device)
 
-        if self.bert_token_type:
+        if self.plm_token_type:
             tok_type_tensor = torch.LongTensor(tok_type_lists).to(self._device)
-            bert_output = self.bert_model(tokens_tensor,
+            bert_output = self.plm_model(tokens_tensor,
                                           attention_mask=att_masks_tensor, token_type_ids=tok_type_tensor)[0]
         else:
-            bert_output = self.bert_model(tokens_tensor,
+            bert_output = self.plm_model(tokens_tensor,
                                           attention_mask=att_masks_tensor)[0]
 
         enc_output = bert_output
@@ -1067,7 +1077,7 @@ class SpiderEncoderBert(torch.nn.Module):
         if not isinstance(toks[0], list):  # encode question words
             indexed_tokens = self.tokenizer.convert_tokens_to_ids(toks)
             tokens_tensor = torch.tensor([indexed_tokens]).to(self._device)
-            outputs = self.bert_model(tokens_tensor)
+            outputs = self.plm_model(tokens_tensor)
             return outputs[0][0, 1:-1]  # remove [CLS] and [SEP]
         else:
             max_len = max([len(it) for it in toks])
@@ -1078,7 +1088,7 @@ class SpiderEncoderBert(torch.nn.Module):
                 tok_ids.append(indexed_tokens)
 
             tokens_tensor = torch.tensor(tok_ids).to(self._device)
-            outputs = self.bert_model(tokens_tensor)
+            outputs = self.plm_model(tokens_tensor)
             return outputs[0][:, 0, :]
 
     def check_bert_seq(self, toks):
