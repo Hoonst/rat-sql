@@ -117,11 +117,11 @@ bash evaluation_format.sh                        # Format Evaluated Results
 ```
 
 ## Train
-훈련을 진행할 때는 train_bert.sh를 활용
+훈련을 진행할 때는 scripts/train_bert.sh를 활용
 각 실험들은 파라미터들을 experiments/spider-bert-run.jsonnet 에서 변화를 주어서 진행됨
 (변화 시도와 모델 변경을 통해 새로 삽입한 파라미터에 대하여 소개)
 
-### model_config_args
+### Train Parameters: model_config_args
 * **bs**: batch size
 * **num_layers**: Relation Aware Self Attention Layer 개수
     * Default: 8
@@ -172,3 +172,15 @@ bash evaluation_format.sh                        # Format Evaluated Results
     * ANNA [ANNA: Enhanced Language Representation for Question Answering](https://aclanthology.org/2022.repl4nlp-1.13.pdf)에 기반하여 Neighbor-aware Attention을 적용
     * 구현 상의 문제는 없는 것 같으나, 성능이 도출되지 않음
     * Selection: (MP: Multihead Only / MNP: Multihead-Neighbor / NP: Neighbor Only)
+
+## Evaluation
+Evaluation을 위해선 scripts/eval_bert.sh를 활용
+
+eval_bert.sh에서 spider-bert-run.jsonnet의 model_config_args 하단 부분의 파라미터를 사용
+
+### Eval Parameters: Parameters under model_config_args
+* eval_steps: evaluation을 진행하고자 하는 step
+    * configs/spider/nl2code-bert.jsonnet에서 설정한 폴더 명으로 접근하여 step에 해당하는 모델을 토대로 inference를 수행하고 evaluation을 진행
+
+## Model Name Change
+configs/spider/nl2code-bert.jsonnet의 model_name을 수정
