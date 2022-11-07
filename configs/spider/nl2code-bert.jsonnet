@@ -21,8 +21,10 @@ function(args) _base(output_from=_output_from, data_path=args.data_path) + {
     local bi_match = args.bi_match,
     local dp_link = args.dp_link,
     local plm = if args.plm_version == "bert-large-uncased-whole-word-masking" then 'bert' else if args.plm_version =="google/electra-large-discriminator" then "electra" else if args.plm_version =="microsoft/deberta-v3-large" then "debertav3" else if args.plm_version=="microsoft/deberta-large" then "debertav1",
+    local att_seq = args.att_seq,
+    local layers = args.num_layers,
     
-    model_name: 'bs=%(bs)d,qv_link=%(qv_link)s,dist=%(dist_relation)s,orthog=%(orthog)s,orth_init=%(orth_init)s,bi_way=%(bi_way)s,bi_match=%(bi_match)s,dp_link=%(dp_link)s,plm=%(plm)s' % (args + {
+    model_name: 'bs=%(bs)d,qv_link=%(qv_link)s,dist=%(dist_relation)s,orthog=%(orthog)s,orth_init=%(orth_init)s,bi_way=%(bi_way)s,bi_match=%(bi_match)s,dp_link=%(dp_link)s,plm=%(plm)s,att_seq=%(att_seq)s,layers=%(layers)s' % (args + {
         qv_link: qv_link,
         dist_relation: dist_relation,
         orthog: orthog,
@@ -31,12 +33,14 @@ function(args) _base(output_from=_output_from, data_path=args.data_path) + {
         bi_match: bi_match,
         dp_link: dp_link,
         plm: plm,
+        att_seq: att_seq,
+        layers: layers,
     }),
     
     model+: {
         encoder+: {
             name: 'spider-bert',
-            batch_encs_update:: null,
+            batch_encs_update:: false,
             question_encoder:: null,
             column_encoder:: null,
             table_encoder:: null,
@@ -49,6 +53,7 @@ function(args) _base(output_from=_output_from, data_path=args.data_path) + {
                 cv_link: args.cv_link,
                 qv_link: args.qv_link,
                 dp_link: args.dp_link,
+                att_seq: args.att_seq,
                 dist_relation: args.dist_relation,
                 orth_init: args.use_orth_init,
                 bi_match: args.bi_match,

@@ -491,6 +491,7 @@ class SpiderEncoderV2(torch.nn.Module):
         # Update each other using self-attention
         # q_enc_new, c_enc_new, and t_enc_new are PackedSequencePlus with shape
         # batch (=1) x length x recurrent_size
+
         if self.batch_encs_update:
             q_enc_new, c_enc_new, t_enc_new = self.encs_update(
                 descs, q_enc, c_enc, c_boundaries, t_enc, t_boundaries)
@@ -810,7 +811,7 @@ class SpiderEncoderBert(torch.nn.Module):
             self.base_enc_hidden_size = 1024
         elif plm_version == "google/electra-large-discriminator":
             self.base_enc_hidden_size = 1024
-        elif "deberta" in plm_version and 'v3':
+        elif "deberta" in plm_version:
             self.base_enc_hidden_size = 1024
         else:
             self.base_enc_hidden_size = 768
@@ -983,7 +984,6 @@ class SpiderEncoderBert(torch.nn.Module):
                 # 왜 Batch 가 50?
                 # enc_output의 shape 탐색
                 # batch size가 50으로 나타나는 이유는 맨 처음에 eval을 한 번 하고 진행하기 때문이다.
-
 
                 if self.qv_link:
                     val_enc = enc_output[bert_batch_idx][batch_id_to_retrieve_value[bert_batch_idx]]

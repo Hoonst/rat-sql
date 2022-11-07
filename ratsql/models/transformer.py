@@ -216,6 +216,24 @@ class MultiHeadedAttention(nn.Module):
             x = x.squeeze(1)
         return self.linears[-1](x)
 
+def get_attn_mask(seq_lengths):
+    # Given seq_lengths like [3, 1, 2], this will produce
+    # [[[1, 1, 1],
+    #   [1, 1, 1],
+    #   [1, 1, 1]],
+    #  [[1, 0, 0],
+    #   [0, 0, 0],
+    #   [0, 0, 0]],
+    #  [[1, 1, 0],
+    #   [1, 1, 0],
+    #   [0, 0, 0]]]
+    # int(max(...)) so that it has type 'int instead of numpy.int64
+    max_length, batch_size = seq_lengths, 1
+    attn_mask = torch.LongTensor(batch_size, max_length, max_length).fill_(0)
+
+    for batch_idx, seq_length in enumerate(seq_lengths):
+        attn_mask[batch_idx, :seq_length, :seq_length] = 1
+    return attn_mask
 
 # Adapted from The Annotated Transformer
 def attention_with_relations(query, key, value, relation_k, relation_v, mask=None, dropout=None):
@@ -226,9 +244,35 @@ def attention_with_relations(query, key, value, relation_k, relation_v, mask=Non
     - softmax를 통해 attention distribution
     - 해당 Attention Distribution을 Value, 그리고 value_relation에 내적함
     '''
-
     d_k = query.size(-1)
     scores = relative_attention_logits(query, key, relation_k)
+
+    if mask is not None:
+        scores = scores.masked_fill(mask == 0, -1e9)
+    p_attn_orig = F.softmax(scores, dim = -1)
+    if dropout is not None:
+        p_attn = dropout(p_attn_orig)
+    return relative_attention_values(p_attn, value, relation_v), p_attn_orig
+
+def neighbor_attention_with_relations(query, key, value, relation_k, relation_v, mask=None, dropout=None):
+    '''
+    "Compute 'Scaled Dot Product Attention'"
+
+    - relative_attention_logits: attention score를 계산
+    - softmax를 통해 attention distribution
+    - 해당 Attention Distribution을 Value, 그리고 value_relation에 내적함
+    '''
+    d_k = query.size(-1)
+    scores = relative_attention_logits(query, key, relation_k)
+
+    heads, seq_length = query.size(1), query.size(2)
+
+    ones = torch.ones(seq_length, seq_length)
+    diag = torch.eye(seq_length)
+
+    one_mask = ones - diag
+    mask = one_mask.expand(1, heads, seq_length, seq_length).to(scores.device)
+
     if mask is not None:
         scores = scores.masked_fill(mask == 0, -1e9)
     p_attn_orig = F.softmax(scores, dim = -1)
@@ -287,6 +331,7 @@ class MultiHeadedAttentionWithRelations(nn.Module):
         self.dropout = nn.Dropout(p=dropout)
 
     def forward(self, query, key, value, relation_k, relation_v, mask=None):
+        # import IPython; IPython.embed(); exit(1);
         # query shape: [batch, num queries, d_model]
         # key shape: [batch, num kv, d_model]
         # value shape: [batch, num kv, d_model]
@@ -345,6 +390,77 @@ class MultiHeadedAttentionWithRelations(nn.Module):
              .view(nbatches, -1, self.h * self.d_k)
         return self.linears[-1](x)
 
+class NeighborAwareAttentionWithRelations(nn.Module):
+    def __init__(self, h, d_model, dropout=0.1):
+        "Take in model size and number of heads."
+        super(NeighborAwareAttentionWithRelations, self).__init__()
+        assert d_model % h == 0
+        # We assume d_v always equals d_k
+        self.d_k = d_model // h
+        self.h = h
+        self.linears = clones(lambda: nn.Linear(d_model, d_model), 4)
+        self.attn = None
+        self.dropout = nn.Dropout(p=dropout)
+
+    def forward(self, query, key, value, relation_k, relation_v, mask=None):
+        # import IPython; IPython.embed(); exit(1);
+        # query shape: [batch, num queries, d_model]
+        # key shape: [batch, num kv, d_model]
+        # value shape: [batch, num kv, d_model]
+        # relations_k shape: [batch, num queries, num kv, (d_model // h)]
+        # relations_v shape: [batch, num queries, num kv, (d_model // h)]
+        # mask shape: [batch, num queries, num kv]
+        if mask is not None:
+            # Same mask applied to all h heads.
+            # mask shape: [batch, 1, num queries, num kv]
+            mask = mask.unsqueeze(1)
+        nbatches = query.size(0)
+
+        # 1) Do all the linear projections in batch from d_model => h x d_k
+        query, key, value = \
+            [l(x).view(nbatches, -1, self.h, self.d_k).transpose(1, 2)
+             for l, x in zip(self.linears, (query, key, value))]
+
+        # 2) Apply attention on all the projected vectors in batch.
+        # x shape: [batch, heads, num queries, depth]
+
+        '''
+        Note
+        attention_with_relations는
+            - relative_attention_logits - Attention Distribution
+            - relative_attention_values - Distribution Apply
+        로 구성되어 있습니다.
+        
+        특징으로 relation_k와 relation_v가 파라미터로 포함되어 있다.
+        relations
+        [[ 2,  3,  4,  4,  4,  4,  4,  4,  4,  4,  4,  5,  5,  5,  5,  5,
+         5,  5,  5,  5,  5,  5,  5,  5,  5,  6,  6,  6],
+        [ 1,  2,  3,  4,  4,  4,  4,  4,  4,  4,  4,  5,  5,  5,  5,  5,
+         5,  5,  5,  5,  5,  5,  5,  5,  5,  6,  6,  6],
+        [ 0,  1,  2,  3,  4,  4,  4,  4,  4,  4,  4,  5,  5,  5,  5,  5,
+         5,  5, 41,  5,  5,  5,  5, 41,  5,  6, 39,  6],
+
+        그런데 저희는 이전에 relation_k, relation_v를 통해 embedding으로 치환하였습니다.
+        relation_k = self.relation_k_emb(relation)
+        relation_v = self.relation_v_emb(relation)
+
+        또한 주안점으로는 
+            head들끼리는 relation embedding을 공유하지만
+            key와 value의 embedding은 분리가 되어있다는 점입니다.
+        '''
+        x, self.attn = neighbor_attention_with_relations(
+            query,
+            key,
+            value,
+            relation_k,
+            relation_v,
+            mask=mask,
+            dropout=self.dropout)
+
+        # 3) "Concat" using a view and apply a final linear.
+        x = x.transpose(1, 2).contiguous() \
+             .view(nbatches, -1, self.h * self.d_k)
+        return self.linears[-1](x)
 
 # Adapted from The Annotated Transformer
 class Encoder(nn.Module):
@@ -417,12 +533,14 @@ class EncoderLayer(nn.Module):
                 dropout)
     
     '''
-    def __init__(self, size, self_attn, feed_forward, num_relation_kinds, dropout, orth_init):
+    def __init__(self, size, self_attn, feed_forward, num_relation_kinds, dropout, orth_init, neighbor=False):
         super(EncoderLayer, self).__init__()
 
         self.self_attn = self_attn
+        self.neighbor = neighbor
         self.feed_forward = feed_forward
-        self.sublayer = clones(lambda: SublayerConnection(size, dropout), 2)
+        self.sublayer_con = 3 if neighbor else 2
+        self.sublayer = clones(lambda: SublayerConnection(size, dropout), self.sublayer_con)
         self.size = size
         self.orth_init = orth_init
 
@@ -480,9 +598,10 @@ class EncoderLayer(nn.Module):
         sublayer[0]: MHA
         sublayer[1]: PointwiseFeedForward
         '''
-
         x = self.sublayer[0](x, lambda x: self.self_attn(x, x, x, relation_k, relation_v, mask))
-        return self.sublayer[1](x, self.feed_forward)
+        if self.neighbor:
+            x = self.sublayer[1](x, lambda x: self.neighbor(x, x, x, relation_k, relation_v, mask))
+        return self.sublayer[-1](x, self.feed_forward)
 
 
 # Adapted from The Annotated Transformer

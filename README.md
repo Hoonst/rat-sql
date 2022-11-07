@@ -107,3 +107,56 @@ provided by the bot. You will only need to do this once across all repos using o
 This project has adopted the [Microsoft Open Source Code of Conduct](https://opensource.microsoft.com/codeofconduct/).
 For more information see the [Code of Conduct FAQ](https://opensource.microsoft.com/codeofconduct/faq/) or
 contact [opencode@microsoft.com](mailto:opencode@microsoft.com) with any additional questions or comments.
+
+## Conducted Experiments (Hoonst)
+모든 실험의 절차는 다음과 같음
+``` bash
+bash train_bert.sh $GPU_ID                       # Train Step
+bash eval_bert.sh $GPU_ID                        # Evaluation Step
+bash evaluation_format.sh                        # Format Evaluated Results
+```
+
+각 실험들은 파라미터들을 experiments/spider-bert-run.jsonnet 에서 변화를 주어서 진행됨
+(변화 시도와 모델 변경을 통해 새로 삽입한 파라미터에 대하여 소개)
+* **bs**: batch size
+* **plm_version**
+    * "bert-large-uncased-whole-word-masking"
+    * "google/electra-large-discriminator" - ELECTRA를 활용하기 위해선 plm_lr을 1e-4로 변경 필요 (직접 실험하지는 않았지만, 문헌 과 다른 구현체의 파라미터 참고했을때의 수치)
+    * lr을 3e-6으로 설정하게 되면 지속적으로 성능 하락 발생
+    * "microsoft/deberta-v3-large"
+    * "microsoft/deberta-large"
+* **sc_link / cv_link**: schema_linking / column value matching
+    * (True / False)
+* **qv_link**
+    * Value Matching Experiment
+        * question과 column내의 value linking을 수행 > value가 column 내에 포함되어 있으면 입력 Sequence에 더하는 기법
+    * (True / False)
+* **dp_link**
+    * (STANZA / SPACY / False)
+    * DP Relation Add Experiment
+        * dependency parsing으로 인한 Relation을 추가
+    * dp_link를 활성화 하기 위해선 dependency parsing으로 미리 전처리를 수행해놔야 한다.
+    * 즉, STANZA / SPACY와 같은 패키지로 dependency parsing을 진행하여 relation을 미리 설정해두어야 한다.
+* **dist_relation**
+    * dist_relation remove experiment
+        * 'qq_dist', 'cc_dist', 'tt_dist'와 같이 입력 시퀀스 내 각 토큰들의 거리를 기반으로 만든 Relation을 유지할지에 대한 여부 
+    * 유지하지 않으면 모두 default relation으로 치환
+    * (True / False)
+    * 필요 실험: 각 dist를 독립적으로 하나씩 빼보는 실험은 진행
+* **use_orthogonal**
+    * (True / False)
+    * 기존 Loss에 Orthogonal Constraint를 부여
+* **use_orth_init**
+    * (True / Faflse)
+    * Relation Embedding을 처음부터 Orthogonal하게 설정하는 방법
+* **bi_way / bi_match**
+    * (True / False)
+    * Relation Control 실험
+    * Bi_Way > Uni_Way: Bi-directional한 현재 Relation을 단방향으로 제어
+        * ex) qc_default / cq_default를 모두 하나의 default로 변경
+    * Bi_Match > Uni_Match: Exact / Partial Match를 모두 하나의 Match로 변경
+        * qcCEM , cqCEM > qcCEM 하나의 Relation을 활용하도록 설정
+* **att_seq**
+    * ANNA [ANNA: Enhanced Language Representation for Question Answering](https://aclanthology.org/2022.repl4nlp-1.13.pdf)에 기반하여 Neighbor-aware Attention을 적용
+    * 구현 상의 문제는 없는 것 같으나, 성능이 도출되지 않음
+    * (MP: Multihead Only / MNP: Multihead-Neighbor / NP: Neighbor Only)

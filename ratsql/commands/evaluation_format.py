@@ -52,10 +52,12 @@ def format_eval(args):
         print(f"Step: {step} Result")
 
         step_result[step] = {}
+        step_result[step]['overall'] = round(overall / 1034, 4) * 100
+
         for hardness in hardness_cnt.keys():
             step_result[step][hardness] = round(exact_match[hardness] / hardness_cnt[hardness], 4) * 100
             print(f"{hardness}: {exact_match[hardness] / hardness_cnt[hardness]}")
-        step_result[step]['overall'] = round(overall / 1034, 4) * 100
+        
 
         print(f"Overall: {overall / 1034}")
 

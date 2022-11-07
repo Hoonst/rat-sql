@@ -311,6 +311,7 @@ class RelationalTransformerUpdate(torch.nn.Module):
                  cv_link=False,
                  qv_link=False,
                  dp_link=False,
+                 att_seq='MP',
                  dist_relation=True,
                  orth_init=False,
                  bi_match=True,
@@ -342,6 +343,7 @@ class RelationalTransformerUpdate(torch.nn.Module):
         self.bi_match = bi_match
         self.bi_way = bi_way
         self.dp_link = dp_link
+        self.att_seq = att_seq
 
         self.relation_ids = {}
         
@@ -563,24 +565,68 @@ class RelationalTransformerUpdate(torch.nn.Module):
 
         if ff_size is None:
             ff_size = hidden_size * 4
-        self.encoder = transformer.Encoder(
-            lambda: transformer.EncoderLayer(
+
+        if att_seq == 'MP':
+            self.encoder = transformer.Encoder(
+                lambda: transformer.EncoderLayer(
+                    hidden_size,
+                    transformer.MultiHeadedAttentionWithRelations(
+                        num_heads,
+                        hidden_size,
+                        dropout),
+                    transformer.PositionwiseFeedForward(
+                        hidden_size,
+                        ff_size,
+                        dropout),
+                    len(self.relation_ids),
+                    dropout,
+                    orth_init),
                 hidden_size,
-                transformer.MultiHeadedAttentionWithRelations(
-                    num_heads,
+                num_layers,
+                tie_layers,
+                )
+        elif att_seq == 'MNP':
+            self.encoder = transformer.Encoder(
+                lambda: transformer.EncoderLayer(
                     hidden_size,
-                    dropout),
-                transformer.PositionwiseFeedForward(
+                    transformer.MultiHeadedAttentionWithRelations(
+                        num_heads,
+                        hidden_size,
+                        dropout),
+                    transformer.PositionwiseFeedForward(
+                        hidden_size,
+                        ff_size,
+                        dropout),
+                    len(self.relation_ids),
+                    dropout,
+                    orth_init,
+                    transformer.NeighborAwareAttentionWithRelations(
+                        num_heads,
+                        hidden_size,
+                        dropout)),
+                hidden_size,
+                num_layers,
+                tie_layers,
+                )
+        elif att_seq == 'NP':
+            self.encoder = transformer.Encoder(
+                lambda: transformer.EncoderLayer(
                     hidden_size,
-                    ff_size,
-                    dropout),
-                len(self.relation_ids),
-                dropout,
-                orth_init),
-            hidden_size,
-            num_layers,
-            tie_layers,
-            )
+                    transformer.NeighborAwareAttentionWithRelations(
+                        num_heads,
+                        hidden_size,
+                        dropout),
+                    transformer.PositionwiseFeedForward(
+                        hidden_size,
+                        ff_size,
+                        dropout),
+                    len(self.relation_ids),
+                    dropout,
+                    orth_init),
+                hidden_size,
+                num_layers,
+                tie_layers,
+                )
 
         self.align_attn = transformer.PointerWithRelations(hidden_size,
                                                            len(self.relation_ids), dropout)
@@ -617,8 +663,11 @@ class RelationalTransformerUpdate(torch.nn.Module):
             c_boundaries=c_boundaries,
             t_boundaries=t_boundaries,
             v_enc_length=v_enc.shape[0])
-
         relations_t = torch.LongTensor(relations).to(self._device)
+
+        # mask shape: [batch, total len, total len]
+        # enc_lengths = list(enc.orig_lengths())
+        # mask = get_attn_mask(enc_lengths).to(self._device)
 
         enc_new = self.encoder(enc, relations_t, mask=None)
 
@@ -666,6 +715,8 @@ class RelationalTransformerUpdate(torch.nn.Module):
         mask = get_attn_mask(enc_lengths).to(self._device)
         # enc_new: shape [batch, total len, recurrent size]
         enc_padded, _ = enc.pad(batch_first=True)
+
+        # import IPython; IPython.embed(); exit(1);
         enc_new = self.encoder(enc_padded, relations_t, mask=mask)
 
         # Split enc_new again
@@ -1011,6 +1062,8 @@ class RelationalTransformerUpdate(torch.nn.Module):
                         set_relation(('vv_dist', clamp(j - i, self.vv_max_dist)))
                     else:
                         set_relation('vv_default')
+
+        # import IPython; IPython.embed(); exit(1);
 
         return relations
 
